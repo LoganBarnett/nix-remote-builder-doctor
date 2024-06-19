@@ -1,0 +1,18 @@
+[package]
+name = "nix-remote-builder-doctor"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+base64 = "0.22.1"
+clap = "4.5.7"
+clap-verbosity-flag = "2.2.0"
+log = "0.4.21"
+regex = "1.10.5"
+# russh = { version = "0.43.0", features = ["openssl"] }
+# ssh2 = { version = "0.9.4" }
+ssh2 = { git = "https://github.com/Jeidnx/ssh2-rs.git" }
+stderrlog = "0.6.0"
+url = "2.5.1"

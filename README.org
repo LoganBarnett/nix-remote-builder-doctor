@@ -1,0 +1,13 @@
+#+title:     Nix Remote Builder Doctor
+#+author:    Logan Barnett
+#+email:     logustus@gmail.com
+#+date:      <2024-06-19 Wed>
+#+language:  en
+#+file_tags:
+#+tags:
+
+A diagnosis program for using Nix remote builders.  This reports specific issues
+when trying to use a remote builder in Nix and offers suggestions on how to fix
+it.
+
+This is a very immature program currently and needs a lot of work.
