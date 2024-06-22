@@ -1,4 +1,4 @@
-use crate::{error::AppError, ssh::Ssh, ssh2_adapter::Ssh2, test::{MachineTestContext, Test, TestResult}};
+use crate::{error::AppError, ssh::Ssh, ssh2_adapter::Ssh2, test::{MachineTestContext, Test, TestResult, TestStatus}};
 
 pub struct RemoteBuildTest {
 
@@ -14,15 +14,15 @@ impl Test for RemoteBuildTest {
         ssh.disconnect()?;
         if output.status == 0 {
           Ok(TestResult {
-            pass: true,
             reason: "".to_string(),
+            status: TestStatus::Pass,
             context: context.clone(),
           })
         } else {
           Ok(TestResult {
-            pass: false,
             // TODO: Should be stderr or both.
             reason: output.stdout,
+            status: TestStatus::Fail,
             context: context.clone(),
           })
         }
@@ -30,8 +30,8 @@ impl Test for RemoteBuildTest {
       .or_else(|e| {
         println!("Connection failure!");
         Ok(TestResult {
-          pass: false,
           reason: format!("{:?}", e),
+          status: TestStatus::Fail,
           context: context.clone(),
         })
       })

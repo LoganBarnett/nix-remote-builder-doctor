@@ -1,11 +1,15 @@
-#[derive(Clap)]
-#[clap(
+use clap::Parser;
+
+#[derive(Parser)]
+#[command(
   name = "nix-remote-builder-doctor",
   about = "Diagnose Nix remote builder issues.",
 )]
-#[clap(setting = clap::AppSettings::ColoredHelp)]
 pub struct Cli {
-  pub machines_file: Path,
+  #[arg(env, short, long, default_value = "/etc/nix/machines")]
+  pub machines_file: String,
+  #[arg(env, short, long)]
   pub exclude: Vec<String>,
-  pub verbosity: usize,
+  #[command(flatten)]
+  pub verbosity: clap_verbosity_flag::Verbosity,
 }

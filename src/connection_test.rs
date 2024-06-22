@@ -1,4 +1,4 @@
-use crate::{error::AppError, ssh::Ssh, ssh2_adapter::Ssh2, test::{MachineTestContext, Test, TestResult}};
+use crate::{error::AppError, ssh::Ssh, ssh2_adapter::Ssh2, test::{MachineTestContext, Test, TestResult, TestStatus}};
 
 pub struct ConnectionTest {
 
@@ -14,17 +14,17 @@ impl Test for ConnectionTest {
         ssh.disconnect()?;
         println!("In test: authenticated for {}: {}", context.machine.url, authenticated);
         Ok(TestResult {
-          pass: authenticated,
+          context: context.clone(),
           // TODO: Maybe just make two variants.
           reason: format!("authenticated: {}", authenticated).to_string(),
-          context: context.clone(),
+          status: TestStatus::from(authenticated),
         })
       })
       .or_else(|e| {
         Ok(TestResult {
-          pass: false,
-          reason: format!("{:?}", e),
           context: context.clone(),
+          reason: format!("{:?}", e),
+          status: TestStatus::Fail,
         })
       })
   }

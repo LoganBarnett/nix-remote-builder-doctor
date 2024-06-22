@@ -1,4 +1,4 @@
-use crate::{error::AppError, test::{Test, MachineTestContext, TestResult}};
+use crate::{error::AppError, test::{MachineTestContext, Test, TestResult, TestStatus}};
 
 pub struct LocalToRemoteBuildTest {
 
@@ -7,9 +7,9 @@ pub struct LocalToRemoteBuildTest {
 impl Test for LocalToRemoteBuildTest {
   fn test(&self, context: &MachineTestContext) -> Result<TestResult, AppError> {
     Ok(TestResult {
-      pass: false,
-      reason: "".to_string(),
       context: context.clone(),
+      reason: "".to_string(),
+      status: TestStatus::Fail,
     })
   }
 }

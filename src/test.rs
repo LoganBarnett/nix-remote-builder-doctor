@@ -1,4 +1,5 @@
 use crate::{error::AppError, Machine};
+use strum::Display;
 
 #[derive(Clone)]
 pub struct AppTestContext {
@@ -7,8 +8,8 @@ pub struct AppTestContext {
 
 #[derive(Clone)]
 pub struct TestResult {
-  pub pass: bool,
   pub reason: String,
+  pub status: TestStatus,
   pub context: MachineTestContext,
 }
 
@@ -19,15 +20,33 @@ pub struct MachineTestContext {
 }
 
 #[derive(Clone)]
-pub struct MachineTestResults {
+pub struct MachineTestResult {
   pub machine: Machine,
   pub test_results: Vec<TestResult>,
 }
 
 pub struct AppTestResults {
-  pub machine_test_results: Vec<MachineTestResults>,
+  pub machine_test_results: Vec<MachineTestResult>,
 }
 
 pub trait Test {
   fn test(&self, context: &MachineTestContext) -> Result<TestResult, AppError>;
+}
+
+#[derive(Clone, Display)]
+pub enum TestStatus {
+  Pass,
+  Fail,
+}
+
+impl TestStatus {
+
+  pub fn from(b: bool) -> TestStatus {
+    if b {
+      TestStatus::Pass
+    } else {
+      TestStatus::Fail
+    }
+  }
+
 }

@@ -7,14 +7,20 @@ mod connection_test;
 mod local_to_remote_build_test;
 mod ssh2_adapter;
 mod remote_build_test;
+mod cli;
+mod output;
 // mod russh;
 
-use crate::test::Test;
+use output::table_print;
+use partial_application::partial;
+use crate::test::{Test, TestStatus};
 pub(crate) use crate::error::AppError;
+use clap::Parser;
+use cli::Cli;
 use connection_test::ConnectionTest;
 use machine::{parse_all, Machine};
 use remote_build_test::RemoteBuildTest;
-use test::{AppTestContext, AppTestResults, MachineTestContext, MachineTestResults};
+use test::{AppTestContext, AppTestResults, MachineTestContext, MachineTestResult};
 use std::fs;
 
 fn test_results(
@@ -25,7 +31,7 @@ fn test_results(
     machine_test_results: machines
       .into_iter()
       .map(|m| machine_test_results(app_context, m))
-      .collect::<Result<Vec<MachineTestResults>, AppError>>()
+      .collect::<Result<Vec<MachineTestResult>, AppError>>()
       ?,
   })
 }
@@ -33,15 +39,15 @@ fn test_results(
 fn machine_test_results(
   app_context: &AppTestContext,
   machine: &Machine,
-) -> Result<MachineTestResults, AppError> {
+) -> Result<MachineTestResult, AppError> {
   let context = MachineTestContext {
     app_context: app_context.clone(),
     machine: machine.clone(),
   };
-  Ok(MachineTestResults {
+  Ok(MachineTestResult {
     machine: machine.clone(),
     test_results: vec!(
-      // ConnectionTest {}.test(&context)?,
+      ConnectionTest {}.test(&context)?,
       RemoteBuildTest {}.test(&context)?,
     ),
   })
@@ -57,15 +63,16 @@ fn output(results: &AppTestResults) -> () {
         .clone()
         .into_iter()
         .map(|x| {
-          if x.pass {
-            "pass".to_string()
-          } else {
-            format!(
-              "fail: {:?}\nssh -o \"IdentitiesOnly=yes\" -i {} {}",
-              x.reason,
-              x.context.machine.private_key_path,
-              x.context.machine.url.to_string(),
-            )
+          match x.status {
+            TestStatus::Pass => "pass".to_string(),
+            TestStatus::Fail => {
+              format!(
+                "fail: {:?}\nssh -o \"IdentitiesOnly=yes\" -i {} {}",
+                x.reason,
+                x.context.machine.private_key_path,
+                x.context.machine.url.to_string(),
+              )
+            }
           }
         })
         .collect::<Vec<String>>()
@@ -75,13 +82,32 @@ fn output(results: &AppTestResults) -> () {
   }
 }
 
+fn host_exclude(
+  excludes: &Vec<String>,
+  machines: Vec<Machine>,
+) -> Vec<Machine> {
+  machines
+    .into_iter()
+    .filter(move |machine| {
+      !excludes
+        .into_iter()
+        .any(|exclude| {
+          machine.url.host_str().unwrap_or("").contains(exclude)
+        })
+    })
+    .collect()
+}
+
 fn main() -> Result<(), AppError> {
+  let cli = Cli::parse();
   let machines: Vec<Machine> = fs::read_to_string("/etc/nix/machines")
     .map_err(AppError::MachinesFileReadError)
     .and_then(machine::parse_raw)
     .and_then(parse_all)
+    .map(partial!(host_exclude => &cli.exclude, _))
     ?;
   let context = AppTestContext {};
-  output(&test_results(&context, &machines)?);
+  // output(&test_results(&context, &machines)?);
+  table_print(&test_results(&context, &machines)?.machine_test_results);
   Ok(())
 }
