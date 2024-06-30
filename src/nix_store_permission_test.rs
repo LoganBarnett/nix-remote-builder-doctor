@@ -10,6 +10,8 @@ impl Test for NixStorePermissionTest {
       context: context.clone(),
       reason: "".to_string(),
       status: TestStatus::Fail,
+      suggestion: "".to_string(),
+      test_name: "Nix Store Permission".to_string(),
     })
   }
 }

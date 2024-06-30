@@ -18,6 +18,8 @@ impl Test for ConnectionTest {
           // TODO: Maybe just make two variants.
           reason: format!("authenticated: {}", authenticated).to_string(),
           status: TestStatus::from(authenticated),
+          suggestion: "".to_string(),
+          test_name: "Connection".to_string(),
         })
       })
       .or_else(|e| {
@@ -25,6 +27,12 @@ impl Test for ConnectionTest {
           context: context.clone(),
           reason: format!("{:?}", e),
           status: TestStatus::Fail,
+          suggestion: format!(
+            "Use the following to test your ssh connection, \
+             and add -v's to increase verobsity (ie, -vvv):\n{}",
+            context.machine.ssh_invocation(),
+          ).to_string(),
+          test_name: "Connection".to_string(),
         })
       })
   }

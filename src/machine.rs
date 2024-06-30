@@ -29,6 +29,18 @@ pub struct Machine {
   pub supported_features: Vec<String>,
 }
 
+impl Machine {
+
+  pub fn ssh_invocation(&self) -> String {
+    format!(
+      "sudo ssh -o \"IdentitiesOnly=yes\" -o \"StrictHostKeyChecking=no\" -i {} {}",
+      self.private_key_path,
+      self.url.to_string(),
+    )
+  }
+
+}
+
 fn parse_field_string(
   field_name: String,
   field_candidate: Option<&String>,

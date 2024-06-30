@@ -8,9 +8,11 @@ pub struct AppTestContext {
 
 #[derive(Clone)]
 pub struct TestResult {
+  pub context: MachineTestContext,
   pub reason: String,
   pub status: TestStatus,
-  pub context: MachineTestContext,
+  pub suggestion: String,
+  pub test_name: String,
 }
 
 #[derive(Clone)]

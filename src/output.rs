@@ -37,3 +37,30 @@ pub fn table_print(records: &Vec<MachineTestResult>) -> () {
     .to_string();
   println!("{}", table);
 }
+
+pub fn suggestions_print(records: &Vec<MachineTestResult>) -> () {
+  let output = records
+    .into_iter()
+    .filter(|record| {
+      (&record.test_results).into_iter().any(|result| {
+        result.status == TestStatus::Fail
+      })
+    })
+    .map(|record| {
+      (&record.test_results).into_iter().map(|result| {
+        format!(
+          "{} failed test {}\n  Reason: {}\n  Suggestion: {}",
+          record.machine.url.host_str().unwrap_or("unknown host"),
+          result.test_name,
+          result.reason,
+          result.suggestion,
+        )
+      })
+      .collect::<Vec<String>>()
+    })
+    .flatten()
+    .collect::<Vec<String>>()
+    .join("\n")
+    ;
+  println!("{}", output);
+}

@@ -17,6 +17,8 @@ impl Test for RemoteBuildTest {
             reason: "".to_string(),
             status: TestStatus::Pass,
             context: context.clone(),
+            suggestion: "".to_string(),
+            test_name: "Remote Build".to_string(),
           })
         } else {
           Ok(TestResult {
@@ -24,15 +26,19 @@ impl Test for RemoteBuildTest {
             reason: output.stdout,
             status: TestStatus::Fail,
             context: context.clone(),
+            suggestion: "No suggestions yet.".to_string(),
+            test_name: "Remote Build".to_string(),
           })
         }
       })
       .or_else(|e| {
-        println!("Connection failure!");
+        println!("Connection failure! {:?}", e);
         Ok(TestResult {
           reason: format!("{:?}", e),
           status: TestStatus::Fail,
           context: context.clone(),
+          suggestion: "No suggestions yet.".to_string(),
+          test_name: "Remote Build".to_string(),
         })
       })
   }

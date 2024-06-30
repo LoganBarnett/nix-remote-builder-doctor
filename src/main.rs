@@ -11,7 +11,7 @@ mod cli;
 mod output;
 // mod russh;
 
-use output::table_print;
+use output::{suggestions_print, table_print};
 use partial_application::partial;
 use crate::test::{Test, TestStatus};
 pub(crate) use crate::error::AppError;
@@ -108,6 +108,8 @@ fn main() -> Result<(), AppError> {
     ?;
   let context = AppTestContext {};
   // output(&test_results(&context, &machines)?);
-  table_print(&test_results(&context, &machines)?.machine_test_results);
+  let results = test_results(&context, &machines)?.machine_test_results;
+  table_print(&results);
+  suggestions_print(&results);
   Ok(())
 }
