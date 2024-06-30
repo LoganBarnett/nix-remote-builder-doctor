@@ -11,3 +11,62 @@ when trying to use a remote builder in Nix and offers suggestions on how to fix
 it.
 
 This is a very immature program currently and needs a lot of work.
+
+** Tests
+*** Current Tests
+
+**** SSH Connection
+
+Tests if an SSH connection can be done using the SSH configuration as well as
+=/etc/nix/machines=.  No functionality is tested other than just making the
+connection itself.
+
+**** SSH Configuration
+
+This tests that the SSH configuration is in a best-known working state, and the
+configuration aligns with =/etc/nix/machines=.  See [[SSH Connection]] for testing
+the actual connection.  The purpose of this test is to get more fine details
+than just "an SSH connection couldn't be made".
+
+This is a vital test because =/etc/nix/machines= is not the end-all for
+indicating remote host build settings.  The keys themselves are not used in
+=/etc/nix/machines= (perhaps because it's public key only).  Or it could be that
+these keys are the _remote_'s keys, and not the keys used to SSH.  Pointing to
+some documentation here would be really good.
+
+**** Build on the Remote Host
+
+This tests that once an SSH connection is established, the user can trigger a
+build on the =nix-daemon= and see a positive outcome.  This does not confirm
+that builds will be made remotely, but instead simply tests if building on the
+remote host is possible.
+
+**** Nix Store Permissions
+
+This tests if the builder user is able to influence changes on the remote Nix
+store.  This might not be any different than [[Build on the Remote Host]] but we'll
+know more once it's actually implemented.
+
+**** =nix store ping=
+
+=nix store ping= is replaced with =nix store info= for later versions of Nix,
+but =nixpkgs= for NixOS and =nix-darwin= are locked into an older Nix version.
+This will use =nix store ping= and should also cover =nix store info=.  This
+requires contributions from one brave enough to upgrade their Nix.
+
+**** Local to Remote Build
+
+This tests more or less the full functionality of a remote build.  The build is
+asked for locally, but a builder is indicated in the build such that it should
+be sent to the remote host.  This should be indistinguishable from doing any
+other remote build against the same host.
+*** Future Tests
+
+**** Diagnose Weighting Issues
+
+Multiple hosts can potentially be candidate remote builders for a particular
+build.  Why does Nix select one host over the other?
+
+For some reason if a particular host is getting jobs when the jobs should be
+spread out more or otherwise done on more than one host, it would be good to
+have some indication as to what's going on there.
