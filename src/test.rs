@@ -35,7 +35,7 @@ pub trait Test {
   fn test(&self, context: &MachineTestContext) -> Result<TestResult, AppError>;
 }
 
-#[derive(Clone, Display)]
+#[derive(Clone, Display, PartialEq)]
 pub enum TestStatus {
   Pass,
   Fail,

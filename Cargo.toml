@@ -10,6 +10,7 @@ base64 = "0.22.1"
 clap = { version = "4.5.7", features = ["env", "derive", "wrap_help"] }
 clap-verbosity-flag = "2.2.0"
 log = "0.4.21"
+owo-colors = "4.0.0"
 partial_application = "0.2.1"
 regex = "1.10.5"
 # russh = { version = "0.43.0", features = ["openssl"] }
@@ -17,5 +18,5 @@ regex = "1.10.5"
 ssh2 = { git = "https://github.com/Jeidnx/ssh2-rs.git" }
 stderrlog = "0.6.0"
 strum = { version = "0.26.2", features = [ "derive" ] }
-tabled = "0.15.0"
+tabled = { version = "0.15.0", features = ["ansi"] }
 url = "2.5.1"

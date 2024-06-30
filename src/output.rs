@@ -1,6 +1,8 @@
+use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
-use crate::test::{MachineTestResult, TestResult};
+
+use crate::test::{MachineTestResult, TestResult, TestStatus::{self, Fail, Pass}};
 
 // pub struct TestResultTableRecord {
 //   pub hostname: String,
@@ -23,7 +25,10 @@ pub fn table_print(records: &Vec<MachineTestResult>) -> () {
           r.test_results
            .iter()
            .map(|result| {
-             result.status.to_string()
+             match result.status {
+               Pass => result.status.to_string().green().to_string(),
+               Fail => result.status.to_string().red().to_string(),
+             }
            })
            .collect::<Vec<String>>(),
         ).concat()
