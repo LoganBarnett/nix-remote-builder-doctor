@@ -3,8 +3,8 @@
 // tickets have.
 use log::*;
 use std::io::prelude::*;
-use std::{net::TcpStream, path::Path};
-use ssh2::{Session, TraceFlags};
+use std::net::TcpStream;
+use ssh2::Session;
 
 use crate::{machine::Machine, ssh::{CommandOutput, Ssh}, AppError};
 

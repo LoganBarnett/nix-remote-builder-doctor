@@ -1,3 +1,5 @@
+use log::*;
+
 use crate::{error::AppError, ssh::Ssh, ssh2_adapter::Ssh2, test::{MachineTestContext, Test, TestResult, TestStatus}};
 
 pub struct RemoteBuildTest {
@@ -9,7 +11,7 @@ impl Test for RemoteBuildTest {
     let mut ssh = Ssh2::new();
     ssh.connect(&context.machine)
       .and_then(|()| {
-        println!("Connected in remote build test.  Running...");
+        info!("Connected in remote build test.  Running...");
         let output = ssh.run("nix build nixpkgs#hello")?;
         ssh.disconnect()?;
         if output.status == 0 {
@@ -23,7 +25,12 @@ impl Test for RemoteBuildTest {
         } else {
           Ok(TestResult {
             // TODO: Should be stderr or both.
-            reason: output.stdout,
+            reason: format!(
+              "exit code: {}\nstdout:{}\nstderr: {}",
+              output.status,
+              output.stdout,
+              output.stderr,
+            ),
             status: TestStatus::Fail,
             context: context.clone(),
             suggestion: "No suggestions yet.".to_string(),
@@ -32,7 +39,7 @@ impl Test for RemoteBuildTest {
         }
       })
       .or_else(|e| {
-        println!("Connection failure! {:?}", e);
+        error!("Connection failure! {:?}", e);
         Ok(TestResult {
           reason: format!("{:?}", e),
           status: TestStatus::Fail,

@@ -9,7 +9,7 @@ mod ssh2_adapter;
 mod remote_build_test;
 mod cli;
 mod output;
-// mod russh;
+mod logger;
 
 use output::{suggestions_print, table_print};
 use partial_application::partial;
@@ -18,6 +18,7 @@ pub(crate) use crate::error::AppError;
 use clap::Parser;
 use cli::Cli;
 use connection_test::ConnectionTest;
+use log::*;
 use machine::{parse_all, Machine};
 use remote_build_test::RemoteBuildTest;
 use test::{AppTestContext, AppTestResults, MachineTestContext, MachineTestResult};
@@ -100,6 +101,7 @@ fn host_exclude(
 
 fn main() -> Result<(), AppError> {
   let cli = Cli::parse();
+  logger::logger_init(&cli.verbosity)?;
   let machines: Vec<Machine> = fs::read_to_string("/etc/nix/machines")
     .map_err(AppError::MachinesFileReadError)
     .and_then(machine::parse_raw)

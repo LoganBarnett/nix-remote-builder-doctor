@@ -1,5 +1,6 @@
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
+use log::debug;
 use url::Url;
 use std::fs;
 use std::process::Command;
@@ -17,7 +18,7 @@ pub struct EtcNixMachineRaw {
   pub supported_features: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Machine {
   pub url: Url,
   pub platforms: Vec<String>,
@@ -100,7 +101,7 @@ pub fn line_to_machine_raw(line: &str) -> Result<EtcNixMachineRaw, AppError> {
     .map(|x| x.to_string())
     .collect()
     ;
-  println!("Line sub parts: {:?}", sub_parts);
+  debug!("Line sub parts: {:?}", sub_parts);
   Ok(EtcNixMachineRaw {
     url: parse_field_string(
       "url".to_string(),

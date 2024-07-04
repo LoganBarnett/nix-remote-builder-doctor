@@ -19,4 +19,5 @@ ssh2 = { git = "https://github.com/Jeidnx/ssh2-rs.git" }
 stderrlog = "0.6.0"
 strum = { version = "0.26.2", features = [ "derive" ] }
 tabled = { version = "0.15.0", features = ["ansi"] }
+tap = "1.0.1"
 url = "2.5.1"

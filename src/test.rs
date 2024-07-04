@@ -1,5 +1,7 @@
 use crate::{error::AppError, Machine};
 use strum::Display;
+use tap::Tap;
+use log::*;
 
 #[derive(Clone)]
 pub struct AppTestContext {
@@ -35,7 +37,7 @@ pub trait Test {
   fn test(&self, context: &MachineTestContext) -> Result<TestResult, AppError>;
 }
 
-#[derive(Clone, Display, PartialEq)]
+#[derive(Clone, Debug, Display, PartialEq)]
 pub enum TestStatus {
   Pass,
   Fail,
@@ -49,6 +51,7 @@ impl TestStatus {
     } else {
       TestStatus::Fail
     }
+      .tap(|x| trace!("{:?} to {:?}", b, x))
   }
 
 }
