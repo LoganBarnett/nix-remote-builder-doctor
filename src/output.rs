@@ -2,7 +2,7 @@ use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
 
-use crate::test::{MachineTestResult, TestResult, TestStatus::{self, Fail, Pass}};
+use crate::test::{MachineTestResult, TestStatus::{self, Fail, Pass}};
 
 // pub struct TestResultTableRecord {
 //   pub hostname: String,
@@ -15,6 +15,7 @@ pub fn table_print(records: &Vec<MachineTestResult>) -> () {
     vec!(vec!(
       "Host".to_string(),
       "Connection".to_string(),
+      "Matching Keys".to_string(),
       "Remote Build".to_string(),
     )),
     records
@@ -52,16 +53,20 @@ pub fn suggestions_print(records: &Vec<MachineTestResult>) -> () {
       })
     })
     .map(|record| {
-      (&record.test_results).into_iter().map(|result| {
-        format!(
-          "{} failed test {}\n  Reason: {}\n  Suggestion: {}",
-          record.machine.url.host_str().unwrap_or("unknown host"),
-          result.test_name,
-          result.reason,
-          result.suggestion,
-        )
-      })
-      .collect::<Vec<String>>()
+      (&record.test_results)
+        .into_iter()
+        .filter(|res| res.status == TestStatus::Fail)
+        .map(|result| {
+          format!(
+            "Test {} is {} for test {}\n  Reason: {}\n  Suggestion: {}",
+            record.machine.url.host_str().unwrap_or("unknown host"),
+            result.status,
+            result.test_name,
+            result.reason,
+            result.suggestion,
+          )
+        })
+        .collect::<Vec<String>>()
     })
     .flatten()
     .collect::<Vec<String>>()

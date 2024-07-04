@@ -9,8 +9,11 @@ mod ssh2_adapter;
 mod remote_build_test;
 mod cli;
 mod output;
+mod matching_keys_test;
 mod logger;
+mod command;
 
+use matching_keys_test::MatchingKeysTest;
 use output::{suggestions_print, table_print};
 use partial_application::partial;
 use crate::test::{Test, TestStatus};
@@ -48,6 +51,7 @@ fn machine_test_results(
   Ok(MachineTestResult {
     machine: machine.clone(),
     test_results: vec!(
+      MatchingKeysTest {}.test(&context)?,
       ConnectionTest {}.test(&context)?,
       RemoteBuildTest {}.test(&context)?,
     ),
@@ -105,7 +109,20 @@ fn main() -> Result<(), AppError> {
   let machines: Vec<Machine> = fs::read_to_string("/etc/nix/machines")
     .map_err(AppError::MachinesFileReadError)
     .and_then(machine::parse_raw)
-    .and_then(parse_all)
+    .and_then(|raws| {
+      parse_all(raws)
+        .into_iter()
+        .inspect(|res| {
+          match res {
+            Ok(m) => trace!("Parse of machine successful: {:?}", m),
+            Err(e) => error!("Could not handle entry:\n{:?}", e),
+          };
+        })
+        .filter(|x| {
+          x.is_ok()
+        })
+        .collect::<Result<Vec<Machine>, AppError>>()
+    })
     .map(partial!(host_exclude => &cli.exclude, _))
     ?;
   let context = AppTestContext {};

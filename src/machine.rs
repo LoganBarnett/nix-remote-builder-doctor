@@ -147,7 +147,6 @@ pub fn parse_raw(s: String) -> Result<Vec<EtcNixMachineRaw>, AppError> {
 
 pub fn ssh_config_value(
   field: &str,
-  original: &str,
   hostname: &str,
 ) -> Result<String, AppError> {
   let result = Command::new("ssh")
@@ -158,34 +157,50 @@ pub fn ssh_config_value(
     ?;
   if result.status.success() {
     let regex = Regex::new(format!("^{} (.+?)$", field).as_str()).unwrap();
-    Ok(
-      String::from_utf8_lossy(&result.stdout)
-        .split("\n")
-        .into_iter()
-        .map(|s: &str| {
-          // println!("Line from ssh config: {:?}", s);
-          regex
+    String::from_utf8_lossy(&result.stdout)
+      .split("\n")
+      .into_iter()
+      .map(|s: &str| {
+        // debug!("Line from ssh config: {:?}", s);
+        regex
           .captures_iter(s)
           .map(|c| {
             let (_, [value]) = c.extract();
-            println!("{} found: {:?}", field, value);
+            debug!("{} found: {:?}", field, value);
             value.to_string()
           })
-        })
-        // This is very much _magic_.  The list of Options is coerced into a
-        // list of values with the Nones removed.  There is some documentation
-        // to that effect but it is difficult to search for:
-        // https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.flatten
-        .flatten()
-        .collect::<Vec<_>>()
-        .get(0)
-        .unwrap_or(&original.to_string())
-        .clone()
-        .to_string()
-    )
+      })
+      // This is very much _magic_.  The list of Options is coerced into a
+      // list of values with the Nones removed.  There is some documentation
+      // to that effect but it is difficult to search for:
+      // https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.flatten
+      .flatten()
+      .collect::<Vec<_>>()
+      .get(0)
+      .ok_or(AppError::SshConfigQueryFieldMissingError(
+        hostname.to_string(),
+        field.to_string(),
+      ))
+      .cloned()
   } else {
-    Err(AppError::SshConfigQueryError(original.to_string()))
+    Err(AppError::SshConfigQueryError(hostname.to_string()))
   }
+}
+
+pub fn ssh_config_value_with_default(
+  field: &str,
+  original: &str,
+  hostname: &str,
+) -> Result<String, AppError> {
+  ssh_config_value(field, hostname)
+    .or_else({|e|
+      match e {
+        AppError::SshConfigQueryFieldMissingError(_h, _f) => {
+          Ok(original.to_string())
+        },
+        _ => Err(e)
+      }
+    })
 }
 
 // The URL settings can change based on the SSH configuration.  Query `ssh` for
@@ -203,8 +218,8 @@ pub fn url_with_ssh_config(s: &String) -> Result<Url, AppError> {
     // TODO: Make sure root is the default Nix uses, and then use it here if so.
     // ssh_config_value("user", original.username(), host)?,
     original.username(),
-    ssh_config_value("hostname", host, host)?,
-    ssh_config_value(
+    ssh_config_value_with_default("hostname", host, host)?,
+    ssh_config_value_with_default(
       "port",
       original.port().unwrap_or(22 as u16).to_string().as_str(),
       host,
@@ -216,14 +231,25 @@ pub fn url_with_ssh_config(s: &String) -> Result<Url, AppError> {
 pub fn parse(x: EtcNixMachineRaw) -> Result<Machine, AppError> {
   // TODO: Split out the file loading and decoding so we can bundle them as
   // joint errors.  We do not want short-circuit behavior here.
+  let url = url_with_ssh_config(&x.url)?;
+  let url_string = url.to_string();
+  let host_str = url
+    .host_str()
+    .ok_or_else(move || {
+      AppError::MachinesEntryUrlHostnameMissingError(url_string)
+    })?;
   Ok(Machine {
-    url: url_with_ssh_config(&x.url)?,
+    url: url.clone(),
     platforms: x.platforms.clone(),
-    private_key: private_key_loaded(&x.private_key_path)
-      .inspect(|x| println!("private_key: {}", x) )?,
+    private_key: private_key_loaded(host_str, &x.private_key_path)
+      .inspect(|x| debug!("private_key: {}", x) )?,
     private_key_path: x.private_key_path.clone(),
-    public_key: public_key_decoded(&x.public_key_base64)
-      .inspect(|x| println!("public_key: {}", x) )?,
+    // public_key: public_key_decoded(&x.public_key_base64)
+    //   .inspect(|x| debug!("public_key: {}", x) )
+    //   .map(|x| x.trim_end().to_string())
+    //   ?,
+    public_key: public_key_loaded(host_str, &x.private_key_path)
+      .inspect(|x| debug!("public_key: {}", x) )?,
     max_jobs: x.max_jobs.clone(),
     speed_factor: x.speed_factor.clone(),
     supported_features: x.supported_features.clone(),
@@ -238,11 +264,11 @@ pub fn parse(x: EtcNixMachineRaw) -> Result<Machine, AppError> {
 //      .map(machine::parse)
 //      .collect::<Result<Vec<Machine>, AppError>>()
 //  })
-pub fn parse_all(xs: Vec<EtcNixMachineRaw>) -> Result<Vec<Machine>, AppError> {
+pub fn parse_all(xs: Vec<EtcNixMachineRaw>) -> Vec<Result<Machine, AppError>> {
   xs
     .into_iter()
     .map(parse)
-    .collect::<Result<Vec<Machine>, AppError>>()
+    .collect::<Vec<Result<Machine, AppError>>>()
 }
 
 fn public_key_decoded(x: &String) -> Result<String, AppError> {
@@ -255,7 +281,38 @@ fn public_key_decoded(x: &String) -> Result<String, AppError> {
     })
 }
 
-fn private_key_loaded(x: &String) -> Result<String, AppError> {
-  fs::read_to_string(x)
-    .map_err(AppError::PrivateKeyFileReadError)
+fn private_key_loaded(
+  hostname: &str,
+  path: &String,
+) -> Result<String, AppError> {
+    fs::read_to_string(private_key_path_infer(hostname, path)?)
+      .map_err(AppError::PrivateKeyFileReadError)
+}
+
+// The path could be "-" in which case we're supposed to fall back on the SSH
+// configuration.
+fn private_key_path_infer(
+  hostname: &str,
+  path: &String
+) -> Result<String, AppError> {
+  Ok(if path == "-" {
+    ssh_config_value("identityfile", hostname)?
+  } else {
+    path.to_string()
+  })
+}
+
+fn public_key_path_infer(
+  hostname: &str,
+  path: &String
+) -> Result<String, AppError> {
+  Ok(private_key_path_infer(hostname, path)? + ".pub")
+}
+
+fn public_key_loaded(
+  hostname: &str,
+  path: &String,
+) -> Result<String, AppError> {
+    fs::read_to_string(public_key_path_infer(hostname, path)?)
+      .map_err(AppError::PublicKeyFileReadError)
 }
