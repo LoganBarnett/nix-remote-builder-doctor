@@ -1,4 +1,7 @@
-use crate::{error::AppError, test::{MachineTestContext, Test, TestResult, TestStatus}};
+use crate::{
+  error::AppError,
+  test::{MachineTestContext, Test, TestResult},
+};
 
 pub struct NixStorePermissionTest {
 
@@ -6,12 +9,6 @@ pub struct NixStorePermissionTest {
 
 impl Test for NixStorePermissionTest {
   fn test(&self, context: &MachineTestContext) -> Result<TestResult, AppError> {
-    Ok(TestResult {
-      context: context.clone(),
-      reason: "".to_string(),
-      status: TestStatus::Fail,
-      suggestion: "".to_string(),
-      test_name: "Nix Store Permission".to_string(),
-    })
+    Ok(TestResult::default(context,  "Nix Store Permission"))
   }
 }

@@ -2,7 +2,7 @@ use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
 
-use crate::test::{MachineTestResult, TestStatus::{self, Fail, Pass}};
+use crate::test::{MachineTestResult, TestResult};
 
 // pub struct TestResultTableRecord {
 //   pub hostname: String,
@@ -13,10 +13,10 @@ use crate::test::{MachineTestResult, TestStatus::{self, Fail, Pass}};
 pub fn table_print(records: &Vec<MachineTestResult>) -> () {
   let rows = vec!(
     vec!(vec!(
-      "Host".to_string(),
-      "Connection".to_string(),
-      "Matching Keys".to_string(),
-      "Remote Build".to_string(),
+      "Host".into(),
+      "Connection".into(),
+      "Matching Keys".into(),
+      "Remote Build".into(),
     )),
     records
       .into_iter()
@@ -26,9 +26,9 @@ pub fn table_print(records: &Vec<MachineTestResult>) -> () {
           r.test_results
            .iter()
            .map(|result| {
-             match result.status {
-               Pass => result.status.to_string().green().to_string(),
-               Fail => result.status.to_string().red().to_string(),
+             match result {
+               TestResult::Pass(_) => result.to_string().green().to_string(),
+               TestResult::Fail(_) => result.to_string().red().to_string(),
              }
            })
            .collect::<Vec<String>>(),
@@ -47,24 +47,22 @@ pub fn table_print(records: &Vec<MachineTestResult>) -> () {
 pub fn suggestions_print(records: &Vec<MachineTestResult>) -> () {
   let output = records
     .into_iter()
-    .filter(|record| {
-      (&record.test_results).into_iter().any(|result| {
-        result.status == TestStatus::Fail
-      })
-    })
     .map(|record| {
       (&record.test_results)
         .into_iter()
-        .filter(|res| res.status == TestStatus::Fail)
         .map(|result| {
-          format!(
-            "Test {} is {} for test {}\n  Reason: {}\n  Suggestion: {}",
-            record.machine.url.host_str().unwrap_or("unknown host"),
-            result.status,
-            result.test_name,
-            result.reason,
-            result.suggestion,
-          )
+          // Probably no type refinement available in Rust.  Would be nice to
+          // know for sure.
+          match result {
+            TestResult::Pass(data) => "".into(),
+            TestResult::Fail(data) => format!(
+              "Test {} is {} for test failed.\n  Reason: {}\n  Suggestion: {}",
+              record.machine.url.host_str().unwrap_or("unknown host"),
+              data.test_name,
+              data.reason,
+              data.suggestion,
+            ).to_string(),
+          }
         })
         .collect::<Vec<String>>()
     })

@@ -1,41 +1,51 @@
+/*******************************************************************************
+ * This represents a build machine configuration as Nix's remote build system
+ * should see it.  One can find documentation for the settings in
+ * <nixpkgs>/nixos/modules/config/nix-remote-build.nix.  They might also be
+ * published somewhere too.
+ *******************************************************************************/
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use log::debug;
+use tap::Tap;
 use url::Url;
 use std::fs;
-use std::process::Command;
 
-use regex::Regex;
-use crate::error::AppError;
+use crate::{
+  error::AppError,
+  ssh_utils::ssh_config_value
+};
 
 pub struct EtcNixMachineRaw {
-  pub url: String,
-  pub platforms: Vec<String>,
-  pub private_key_path: String,
-  pub public_key_base64: String,
+  pub host_public_key_base64: String,
   pub max_jobs: u32,
+  pub platforms: Vec<String>,
   pub speed_factor: u32,
   pub supported_features: Vec<String>,
+  pub user_private_key_path: String,
+  pub url: String,
 }
 
 #[derive(Clone, Debug)]
 pub struct Machine {
-  pub url: Url,
-  pub platforms: Vec<String>,
-  pub private_key: String,
-  pub private_key_path: String,
-  pub public_key: String,
+  pub host_public_key: String,
   pub max_jobs: u32,
   pub speed_factor: u32,
   pub supported_features: Vec<String>,
+  pub platforms: Vec<String>,
+  pub url: Url,
+  pub user_private_key: String,
+  pub user_private_key_path: String,
 }
 
 impl Machine {
 
   pub fn ssh_invocation(&self) -> String {
+    // TODO: We should disable strict host key checking and instead provide
+    // self.host_public_key as a known public key.
     format!(
       "sudo ssh -o \"IdentitiesOnly=yes\" -o \"StrictHostKeyChecking=no\" -i {} {}",
-      self.private_key_path,
+      self.user_private_key_path,
       self.url.to_string(),
     )
   }
@@ -112,11 +122,11 @@ pub fn line_to_machine_raw(line: &str) -> Result<EtcNixMachineRaw, AppError> {
       "platforms".to_string(),
       sub_parts.get(1),
     )?,
-    public_key_base64: parse_field_string(
+    host_public_key_base64: parse_field_string(
       "public_key".to_string(),
       parts.get(1),
     )?,
-    private_key_path: parse_field_string(
+    user_private_key_path: parse_field_string(
       "private_key_path".to_string(),
       sub_parts.get(2),
     )?,
@@ -143,48 +153,6 @@ pub fn parse_raw(s: String) -> Result<Vec<EtcNixMachineRaw>, AppError> {
     .filter(|line| !line.is_empty())
     .map(line_to_machine_raw)
     .collect()
-}
-
-pub fn ssh_config_value(
-  field: &str,
-  hostname: &str,
-) -> Result<String, AppError> {
-  let result = Command::new("ssh")
-    .arg("-G")
-    .arg(hostname)
-    .output()
-    .map_err(AppError::SshSpawnProcessError)
-    ?;
-  if result.status.success() {
-    let regex = Regex::new(format!("^{} (.+?)$", field).as_str()).unwrap();
-    String::from_utf8_lossy(&result.stdout)
-      .split("\n")
-      .into_iter()
-      .map(|s: &str| {
-        // debug!("Line from ssh config: {:?}", s);
-        regex
-          .captures_iter(s)
-          .map(|c| {
-            let (_, [value]) = c.extract();
-            debug!("{} found: {:?}", field, value);
-            value.to_string()
-          })
-      })
-      // This is very much _magic_.  The list of Options is coerced into a
-      // list of values with the Nones removed.  There is some documentation
-      // to that effect but it is difficult to search for:
-      // https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.flatten
-      .flatten()
-      .collect::<Vec<_>>()
-      .get(0)
-      .ok_or(AppError::SshConfigQueryFieldMissingError(
-        hostname.to_string(),
-        field.to_string(),
-      ))
-      .cloned()
-  } else {
-    Err(AppError::SshConfigQueryError(hostname.to_string()))
-  }
 }
 
 pub fn ssh_config_value_with_default(
@@ -241,15 +209,13 @@ pub fn parse(x: EtcNixMachineRaw) -> Result<Machine, AppError> {
   Ok(Machine {
     url: url.clone(),
     platforms: x.platforms.clone(),
-    private_key: private_key_loaded(host_str, &x.private_key_path)
-      .inspect(|x| debug!("private_key: {}", x) )?,
-    private_key_path: x.private_key_path.clone(),
-    // public_key: public_key_decoded(&x.public_key_base64)
-    //   .inspect(|x| debug!("public_key: {}", x) )
-    //   .map(|x| x.trim_end().to_string())
-    //   ?,
-    public_key: public_key_loaded(host_str, &x.private_key_path)
-      .inspect(|x| debug!("public_key: {}", x) )?,
+    user_private_key: user_private_key_loaded(host_str, &x.user_private_key_path)
+      .inspect(|x| debug!("user_private_key: {}", x) )?,
+    user_private_key_path: x.user_private_key_path.clone(),
+    host_public_key: host_public_key_value(
+      &x.host_public_key_base64,
+      host_str,
+    )?,
     max_jobs: x.max_jobs.clone(),
     speed_factor: x.speed_factor.clone(),
     supported_features: x.supported_features.clone(),
@@ -271,8 +237,27 @@ pub fn parse_all(xs: Vec<EtcNixMachineRaw>) -> Vec<Result<Machine, AppError>> {
     .collect::<Vec<Result<Machine, AppError>>>()
 }
 
-fn public_key_decoded(x: &String) -> Result<String, AppError> {
-  BASE64_STANDARD.decode(x)
+fn host_public_key_value(
+  public_key_base64: &str,
+  _host_str: &str,
+) -> Result<String, AppError> {
+  // In the event of the value "-", the value is the "default value" for that
+  // particular field.  In the case of an SSH public key, that means to use the
+  // system's SSH configuration.  This means another ssh -G query.
+  // if public_key_base64 == "-" {
+  //   public_key_file_data(host_str, &private_key_path)
+  //     .inspect(|x| debug!("public_key: {}", x) )
+  // } else {
+      public_key_decoded(public_key_base64)
+      .inspect(|x| debug!("public_key: {}", x) )
+      .map(|x| x.trim_end().to_string())
+  // }
+}
+
+fn public_key_decoded(x: &str) -> Result<String, AppError> {
+  BASE64_STANDARD.decode(x.tap(|base64| {
+    debug!("Decoding public key from: {}", base64);
+  }))
     .map_err(AppError::PublicKeyDecodeError)
     .and_then({|x|
       std::str::from_utf8(&x)
@@ -281,19 +266,19 @@ fn public_key_decoded(x: &String) -> Result<String, AppError> {
     })
 }
 
-fn private_key_loaded(
+fn user_private_key_loaded(
   hostname: &str,
   path: &String,
 ) -> Result<String, AppError> {
     fs::read_to_string(private_key_path_infer(hostname, path)?)
-      .map_err(AppError::PrivateKeyFileReadError)
+      .map_err(|e| AppError::PrivateKeyFileReadError(e, path.clone()))
 }
 
 // The path could be "-" in which case we're supposed to fall back on the SSH
 // configuration.
 fn private_key_path_infer(
   hostname: &str,
-  path: &String
+  path: &str,
 ) -> Result<String, AppError> {
   Ok(if path == "-" {
     ssh_config_value("identityfile", hostname)?
@@ -304,15 +289,18 @@ fn private_key_path_infer(
 
 fn public_key_path_infer(
   hostname: &str,
-  path: &String
+  path: &str
 ) -> Result<String, AppError> {
   Ok(private_key_path_infer(hostname, path)? + ".pub")
 }
 
-fn public_key_loaded(
+fn public_key_file_data(
   hostname: &str,
-  path: &String,
+  private_key_path: &str,
 ) -> Result<String, AppError> {
-    fs::read_to_string(public_key_path_infer(hostname, path)?)
-      .map_err(AppError::PublicKeyFileReadError)
+  let public_key_path = public_key_path_infer(hostname, private_key_path)?;
+  fs::read_to_string(&public_key_path)
+    .map_err(|e| {
+      AppError::PublicKeyFileReadError(e, public_key_path.to_string())
+    })
 }

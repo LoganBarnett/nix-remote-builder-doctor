@@ -62,8 +62,8 @@ impl Ssh for Ssh2 {
     // https://github.com/alexcrichton/ssh2-rs/issues/254
     self.session.userauth_pubkey_memory(
       machine.url.username(),
-      Some(&machine.public_key),
-      &machine.private_key,
+      Some(&machine.host_public_key),
+      &machine.user_private_key,
       None,
     )
       .map_err(AppError::SshSessionAuthError)?;

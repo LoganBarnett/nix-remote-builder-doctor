@@ -1,8 +1,10 @@
+mod age;
 mod test;
 mod machine;
 mod error;
 mod nix_store_permission_test;
 mod ssh;
+mod ssh_utils;
 mod connection_test;
 mod local_to_remote_build_test;
 mod ssh2_adapter;
@@ -16,7 +18,7 @@ mod command;
 use matching_keys_test::MatchingKeysTest;
 use output::{suggestions_print, table_print};
 use partial_application::partial;
-use crate::test::{Test, TestStatus};
+use crate::test::{Test};
 pub(crate) use crate::error::AppError;
 use clap::Parser;
 use cli::Cli;
@@ -58,34 +60,34 @@ fn machine_test_results(
   })
 }
 
-fn output(results: &AppTestResults) -> () {
-  for test_result in &results.machine_test_results {
-    println!(
-      "{}: {}",
-      test_result.machine.url,
-      test_result
-        .test_results
-        .clone()
-        .into_iter()
-        .map(|x| {
-          match x.status {
-            TestStatus::Pass => "pass".to_string(),
-            TestStatus::Fail => {
-              format!(
-                "fail: {:?}\nssh -o \"IdentitiesOnly=yes\" -i {} {}",
-                x.reason,
-                x.context.machine.private_key_path,
-                x.context.machine.url.to_string(),
-              )
-            }
-          }
-        })
-        .collect::<Vec<String>>()
-        .join("\n")
-        ,
-    );
-  }
-}
+// fn _output(results: &AppTestResults) -> () {
+//   for test_result in &results.machine_test_results {
+//     println!(
+//       "{}: {}",
+//       test_result.machine.url,
+//       test_result
+//         .test_results
+//         .clone()
+//         .into_iter()
+//         .map(|x| {
+//           match x.status {
+//             TestStatus::Pass => "pass".to_string(),
+//             TestStatus::Fail => {
+//               format!(
+//                 "fail: {:?}\nssh -o \"IdentitiesOnly=yes\" -i {} {}",
+//                 x.reason,
+//                 x.context.machine.user_private_key_path,
+//                 x.context.machine.url.to_string(),
+//               )
+//             }
+//           }
+//         })
+//         .collect::<Vec<String>>()
+//         .join("\n")
+//         ,
+//     );
+//   }
+// }
 
 fn host_exclude(
   excludes: &Vec<String>,

@@ -1,4 +1,20 @@
-use crate::{command::command_with_stdin, error::AppError, test::{MachineTestContext, Test, TestResult, TestStatus}};
+/**
+ * This test confirms that the public key for the host is also the public key
+ * found during a key-scan.  Key scans can return multiple keys, but we just
+ * need one of them to match.
+ */
+use crate::{
+  command::command_with_stdin,
+  error::AppError,
+  ssh_utils::ssh_keyscan,
+  test::{
+    MachineTestContext,
+    Test,
+    TestResult,
+    PassData,
+    FailData,
+  }
+};
 
 pub struct MatchingKeysTest {
 
@@ -6,93 +22,49 @@ pub struct MatchingKeysTest {
 
 impl Test for MatchingKeysTest  {
   fn test(&self, context: &MachineTestContext) -> Result<TestResult, AppError> {
-    let test_data = "test encryption round trip";
-    let encrypt_output = command_with_stdin(
-      "rage",
-      vec!(
-        "--encrypt",
-        "--output",
-        "-",
-        "--recipients-file",
-        &(context.machine.private_key_path.clone() + ".pub"),
-      ),
-      test_data.as_bytes(),
-    )?;
-    if !encrypt_output.status.success() {
-      Ok(TestResult {
-        context: context.clone(),
-        reason: format!(
-          "Encryption failed: {:?}",
-          String::from_utf8_lossy(&encrypt_output.stderr),
-        ),
-        status: TestStatus::Fail,
-        suggestion: format!(
-          "learn2encrypt",
-        ).to_string(),
-        test_name: "MatchingKeysTest".to_string(),
+    ssh_keyscan(
+      context.machine.url.host_str().unwrap(),
+      context.machine.url.port().unwrap(),
+    )
+      .and_then(|keyscan_entries| {
+        if keyscan_entries
+          // For now, until I can figure out the borrowing of a nested loop.
+          .clone()
+          .into_iter()
+          .any(|entry| {
+            entry.key_data == context.machine.host_public_key
+          }) {
+            Ok(TestResult::Pass(PassData {
+              context: context.clone(),
+              test_name: "MatchingKeysTest".into(),
+            }))
+          } else {
+            Ok(TestResult::Fail(FailData {
+              context: context.clone(),
+              test_name: "MatchingKeysTest".into(),
+              reason: format!(
+                "None of the keys from the host matched the key found in \
+                 /etc/machines/nix.  \n Machine key:\n{}\n Scanned keys:\n{}",
+                context.machine.host_public_key,
+                keyscan_entries
+                  .into_iter()
+                  .map(|ks| {
+                    format!("  {}", ks.key_data)
+                  })
+                  .collect::<Vec<_>>()
+                  .join("\n"),
+              ),
+              suggestion: "Figure it out".into(),
+            }))
+          }
       })
-    } else {
-      let decrypt_output = command_with_stdin(
-        "rage",
-        vec!(
-          "--decrypt",
-          "--identity",
-          // This is probably wrong, but we probably have an error we can test
-          // for or log about here.
-          // &ssh_config_value(
-          //   "identityfile",
-          //   context
-          //     .machine
-          //     .url
-          //     .host_str()
-          //     .ok_or(AppError::SshConfigQueryHostnameMissingError(
-          //       context.machine.url.clone(),
-          //     ))?,
-          // )?,
-          &context.machine.private_key_path,
-        ),
-        &encrypt_output.stdout,
-      )?;
-      if !decrypt_output.status.success() {
-        Ok(TestResult {
+      .or_else(|e| {
+        Ok(TestResult::Fail(FailData {
           context: context.clone(),
-          reason: format!(
-            "Decryption failed trying to get '{:?}': {:?}",
-            test_data,
-            String::from_utf8_lossy(&decrypt_output.stderr),
-          ).to_string(),
-          status: TestStatus::Fail,
-          suggestion: format!(
-            "Fix it fix it fix it.",
-          ).to_string(),
-          test_name: "MatchingKeysTest".to_string(),
-        })
-      } else {
-        let decrypted_data = String::from_utf8_lossy(&decrypt_output.stdout);
-        if decrypted_data == test_data {
-          Ok(TestResult {
-            context: context.clone(),
-            reason: "".to_string(),
-            status: TestStatus::Pass,
-            suggestion: "".to_string(),
-            test_name: "MatchingKeysTest".to_string(),
-          })
-        } else {
-          Ok(TestResult {
-            context: context.clone(),
-            reason: format!(
-              "Decrypted data {:?} does not match input {:?}.",
-              decrypted_data,
-              test_data,
-            ).to_string(),
-            status: TestStatus::Fail,
-            suggestion: format!(
-              "Come up with something.",
-            ).to_string(),
-            test_name: "MatchingKeysTest".to_string(),
-          })
-        }
-      }
-    }
+          test_name: "MatchingKeysTest".into(),
+          reason: format!("{:?}", e),
+          suggestion: "Figure it out".into(),
+        }))
+      })
   }
 }

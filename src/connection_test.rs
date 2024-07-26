@@ -1,4 +1,9 @@
-use crate::{error::AppError, ssh::Ssh, ssh2_adapter::Ssh2, test::{MachineTestContext, Test, TestResult, TestStatus}};
+use crate::{
+  error::AppError,
+  ssh::Ssh,
+  ssh2_adapter::Ssh2,
+  test::{FailData, MachineTestContext, PassData, Test, TestResult},
+};
 use log::*;
 
 pub struct ConnectionTest {
@@ -18,27 +23,31 @@ impl Test for ConnectionTest {
           context.machine.url,
           authenticated,
         );
-        Ok(TestResult {
-          context: context.clone(),
-          // TODO: Maybe just make two variants.
-          reason: format!("authenticated: {}", authenticated).to_string(),
-          status: TestStatus::from(authenticated),
-          suggestion: "".to_string(),
-          test_name: "Connection".to_string(),
+        Ok(if authenticated {
+          TestResult::Pass(PassData {
+            context: context.clone(),
+            test_name: "Connection".to_string(),
+          })
+        } else {
+          TestResult::Fail(FailData {
+            context: context.clone(),
+            reason: format!("authenticated: {}", authenticated).to_string(),
+            suggestion: "".to_string(),
+            test_name: "Connection".to_string(),
+          })
         })
       })
       .or_else(|e| {
-        Ok(TestResult {
+        Ok(TestResult::Fail(FailData {
           context: context.clone(),
           reason: format!("{:?}", e),
-          status: TestStatus::Fail,
           suggestion: format!(
             "Use the following to test your ssh connection, \
              and add -v's to increase verobsity (ie, -vvv):\n{}",
             context.machine.ssh_invocation(),
           ).to_string(),
           test_name: "Connection".to_string(),
-        })
+        }))
       })
   }
 }
