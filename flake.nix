@@ -26,7 +26,9 @@
       };
     in pkgs.mkShell {
       buildInputs = [
+        pkgs.clang
         pkgs.darwin.apple_sdk.frameworks.Security
+        pkgs.darwin.apple_sdk.frameworks.CoreFoundation
         pkgs.cargo
         pkgs.openssl
         pkgs.libssh2
