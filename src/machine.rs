@@ -50,6 +50,25 @@ impl Machine {
     )
   }
 
+  // This won't round trip in its current state, and probably shouldn't (or at
+  // least we need a variant that won't).  This is because this gets used to
+  // generate an argument for nix build.
+  pub fn etc_machines_entry(&self) -> String {
+    format!(
+      "ssh-ng://{} {} {} {} {} {} {}",
+      self.url.to_string(),
+      self.platforms.join(","),
+      self.user_private_key_path,
+      // TODO: Check that these are correct in order.
+      self.speed_factor,
+      self.max_jobs,
+      self.supported_features.join(","),
+      // This won't round trip because we need to know if the value is "-".
+      // That actually applies to all fields and not just this one.
+      BASE64_STANDARD.encode(&self.host_public_key),
+    )
+  }
+
 }
 
 fn parse_field_string(

@@ -19,15 +19,23 @@ mod logger;
 use matching_keys_test::MatchingKeysTest;
 use output::{suggestions_print, table_print};
 use partial_application::partial;
-use crate::test::{Test};
-pub(crate) use crate::error::AppError;
+use crate::{
+  error::AppError,
+  connection_test::ConnectionTest,
+  local_to_remote_build_test::LocalToRemoteBuildTest,
+  remote_build_test::RemoteBuildTest,
+  test::{
+    AppTestContext,
+    AppTestResults,
+    MachineTestContext,
+    MachineTestResult,
+    Test,
+  },
+};
 use clap::Parser;
 use cli::Cli;
-use connection_test::ConnectionTest;
 use log::*;
 use machine::{parse_all, Machine};
-use remote_build_test::RemoteBuildTest;
-use test::{AppTestContext, AppTestResults, MachineTestContext, MachineTestResult};
 use std::fs;
 
 fn test_results(
@@ -57,6 +65,7 @@ fn machine_test_results(
       MatchingKeysTest {}.test(&context)?,
       ConnectionTest {}.test(&context)?,
       RemoteBuildTest {}.test(&context)?,
+      LocalToRemoteBuildTest {}.test(&context)?,
     ),
   })
 }

@@ -17,6 +17,7 @@ pub fn table_print(records: &Vec<MachineTestResult>) -> () {
       "Matching Keys".into(),
       "Connection".into(),
       "Remote Build".into(),
+      "Local To Remote Build".into(),
     )),
     records
       .into_iter()
