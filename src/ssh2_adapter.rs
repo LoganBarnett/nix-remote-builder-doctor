@@ -80,13 +80,19 @@ impl Ssh for Ssh2 {
     // TODO: Clean up unwraps.
     let mut channel = self.session.channel_session()
       .map_err(AppError::SshChannelOpenFailure)?;
-    channel.exec(command).unwrap();
+    channel
+      .exec(command)
+      .map_err(AppError::SshCommandExecuteError);
     let mut s = String::new();
     // Is this just stdout?
-    channel.read_to_string(&mut s).unwrap();
+    let _ = channel
+      .read_to_string(&mut s)
+      .map_err(AppError::SshChannelReadError)?;
     trace!("Command result: {}", s);
-    channel.wait_close().unwrap();
-    let exit_status = channel.exit_status().unwrap();
+    channel.wait_close().map_err(AppError::SshChannelCloseError)?;
+    let exit_status = channel
+      .exit_status()
+      .map_err(AppError::SshCommandNotTerminatedError)?;
     debug!("Exit status: {}", exit_status);
     Ok(CommandOutput {
       // This is actually a u8 but I'd have to change the interface.  Do that
