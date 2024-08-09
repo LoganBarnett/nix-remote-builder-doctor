@@ -14,6 +14,7 @@ pub struct AppTestContext {
 pub enum TestResult {
   Pass(PassData),
   Fail(FailData),
+  Inconclusive(InconclusiveData),
 }
 
 #[derive(Clone)]
@@ -30,12 +31,32 @@ pub struct FailData {
   pub test_name: String,
 }
 
+#[derive(Clone)]
+pub struct InconclusiveData {
+  pub context: MachineTestContext,
+  pub test_name: String,
+  pub action: ConclusiveAction,
+}
+
+#[derive(Clone)]
+pub enum ConclusiveAction {
+  TestRequest(TestRequestData),
+  ManualInstruction(String),
+}
+
+#[derive(Clone)]
+pub struct TestRequestData {
+  pub requested_test_name: String,
+  pub requesting_test_name: String,
+}
+
 impl TestResult {
 
   fn type_name(&self) -> & 'static str {
     match self {
       TestResult::Pass(_) => "Pass",
       TestResult::Fail(_) => "Fail",
+      TestResult::Inconclusive(_) => "TestRequest",
     }
   }
 
@@ -58,15 +79,6 @@ impl std::fmt::Display for TestResult {
   }
 
 }
-
-// #[derive(Clone)]
-// pub struct TestResult {
-//   pub context: MachineTestContext,
-//   pub reason: String,
-//   pub status: TestStatus,
-//   pub suggestion: String,
-//   pub test_name: String,
-// }
 
 #[derive(Clone)]
 pub struct MachineTestContext {

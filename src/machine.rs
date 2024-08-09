@@ -13,7 +13,7 @@ use std::fs;
 
 use crate::{
   error::AppError,
-  ssh_utils::ssh_config_value
+  ssh_utils::{ssh_config_value, ssh_keyscan},
 };
 
 pub struct EtcNixMachineRaw {
@@ -41,7 +41,7 @@ pub struct Machine {
 impl Machine {
 
   pub fn ssh_invocation(&self) -> String {
-    // TODO: We should disable strict host key checking and instead provide
+    // TODO: We should enable strict host key checking and instead provide
     // self.host_public_key as a known public key.
     format!(
       "sudo ssh -o \"IdentitiesOnly=yes\" -o \"StrictHostKeyChecking=no\" -i {} {}",
@@ -206,6 +206,8 @@ pub fn parse(x: EtcNixMachineRaw) -> Result<Machine, AppError> {
     .ok_or_else(move || {
       AppError::MachinesEntryUrlHostnameMissingError(url_string)
     })?;
+  // SSH's default port if none is stated.
+  let port = url.port().unwrap_or(22);
   Ok(Machine {
     url: url.clone(),
     platforms: x.platforms.clone(),
@@ -215,6 +217,7 @@ pub fn parse(x: EtcNixMachineRaw) -> Result<Machine, AppError> {
     host_public_key: host_public_key_value(
       &x.host_public_key_base64,
       host_str,
+      port,
     )?,
     max_jobs: x.max_jobs.clone(),
     speed_factor: x.speed_factor.clone(),
@@ -239,19 +242,32 @@ pub fn parse_all(xs: Vec<EtcNixMachineRaw>) -> Vec<Result<Machine, AppError>> {
 
 fn host_public_key_value(
   public_key_base64: &str,
-  _host_str: &str,
+  host_str: &str,
+  port: u16,
 ) -> Result<String, AppError> {
   // In the event of the value "-", the value is the "default value" for that
   // particular field.  In the case of an SSH public key, that means to use the
-  // system's SSH configuration.  This means another ssh -G query.
-  // if public_key_base64 == "-" {
-  //   public_key_file_data(host_str, &private_key_path)
-  //     .inspect(|x| debug!("public_key: {}", x) )
-  // } else {
-      public_key_decoded(public_key_base64)
+  // system's SSH known hosts value?  Or perhaps just don't check it at all?
+  if public_key_base64 == "-" {
+    // public_key_file_data(host_str, &private_key_path)
+    //   .inspect(|x| debug!("public_key: {}", x) )
+    ssh_keyscan(host_str, port)
+      .and_then(|entries| {
+        // Does SSH support multiple keys of the same type?  If so, we may need
+        // to change our structures a bit.
+        entries
+          .into_iter()
+          .map(|x| x.to_string())
+          .collect::<Vec<String>>()
+          .get(0)
+          .ok_or(AppError::HostPublicKeyMissingError())
+          .cloned()
+      })
+  } else {
+    public_key_decoded(public_key_base64)
       .inspect(|x| debug!("public_key: {}", x) )
       .map(|x| x.trim_end().to_string())
-  // }
+  }
 }
 
 fn public_key_decoded(x: &str) -> Result<String, AppError> {

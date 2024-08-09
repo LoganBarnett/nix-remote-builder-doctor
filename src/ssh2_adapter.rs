@@ -62,7 +62,9 @@ impl Ssh for Ssh2 {
     // https://github.com/alexcrichton/ssh2-rs/issues/254
     self.session.userauth_pubkey_memory(
       machine.url.username(),
-      Some(&machine.host_public_key),
+      // TODO: This seems to work, but we could also get the public key.  This
+      // should be the local public key, not the host public key.
+      None,
       &machine.user_private_key,
       None,
     )

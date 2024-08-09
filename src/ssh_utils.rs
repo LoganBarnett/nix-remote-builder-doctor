@@ -8,7 +8,10 @@
  * 3. Querying the status of the SSH agent.
  */
 
-use crate::error::AppError;
+use crate::{
+  dns_utils::resolved_host,
+  error::AppError,
+};
 use log::*;
 use regex::Regex;
 use tap::Tap;
@@ -19,11 +22,73 @@ use nix::sys::signal::Signal;
 // For now, until I can figure out the borrowing of a nested loop.
 #[derive(Clone)]
 pub struct KeyscanEntry {
+  pub comment: Option<String>,
   pub key_data: String,
   pub r#type: String,
 }
 
-pub fn ssh_keyscan(host: &str, port: u16) -> Result<Vec<KeyscanEntry>, AppError> {
+impl KeyscanEntry {
+
+  pub fn parse(s: &str) -> Result<KeyscanEntry, AppError> {
+    let segments = s
+      .trim()
+      .split(" ")
+      .into_iter()
+      .collect::<Vec<&str>>();
+    Ok(KeyscanEntry {
+      r#type: segments
+        .get(0)
+        .ok_or(AppError::SshKeyscanParseError(format!(
+          "key_type missing for {}.",
+          s,
+        )))?
+        .to_string(),
+      key_data: segments
+        .get(1)
+        .ok_or(AppError::SshKeyscanParseError(format!(
+          "key_data missing for {}.",
+          s,
+        )))?
+        .to_string(),
+      comment: segments
+        .get(2)
+        .map(|x| x.to_string()),
+    })
+  }
+
+}
+
+impl ToString for KeyscanEntry {
+  fn to_string(&self) -> String {
+    format!(
+      "{} {}{}",
+      self.r#type,
+      self.key_data,
+      self
+        .comment
+        // Not really sure why this is required since this is all immutable.
+        .clone()
+        .map(|x| format!(" {}", x))
+        .unwrap_or("".into()),
+    )
+  }
+}
+
+
+/**
+ * Run ssh-keyscan against the host and retrieve the keys.
+ *
+ * It should be noted that ssh-keyscan can fail in a surprising way: During the
+ * banner exchange the remote sshd can disconnect because pre-auth fails.
+ * ssh-keyscan fails with a SIGPIPE as a result.  This is because the host key
+ * algorithms aren't supported by the sshd instance.  If that's the only issue,
+ * we can SSH to the host and compare the keys to provide a better report.  That
+ * is why we have a separate SshKeyscanCommandSigPipeError.
+ */
+pub fn ssh_keyscan(
+  host: &str,
+  port: u16,
+) -> Result<Vec<KeyscanEntry>, AppError> {
   // This is fun.
   // https://answers.launchpad.net/debian/+source/openssh/1:9.1p1-1 mentions a
   // problem with ssh-keyscan where a one-byte overflow from the SSH banner on
@@ -69,23 +134,29 @@ pub fn ssh_keyscan(host: &str, port: u16) -> Result<Vec<KeyscanEntry>, AppError>
   //
   // This may be a promising to pull:
   // https://askubuntu.com/questions/268272/ssh-refusing-connection-with-message-no-hostkey-alg
-  //
   let result = Command::new("ssh-keyscan")
     // These prevent ssh-keyscan from failing with SIGPIPE.
     // Lies!
     .stdin(Stdio::null())
-    // .stdout(Stdio::piped())
-    // .stderr(Stdio::piped())
-    .stdout(Stdio::inherit())
-    .stderr(Stdio::inherit())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    // .stdout(Stdio::inherit())
+    // .stderr(Stdio::inherit())
     // The host argument must come last, so port comes first.
     .arg("-p")
     .arg(port.to_string())
+    // Why do we need to specify a type?  Shouldn't the absence of a type imply
+    // all types?
+    .arg("-t")
+    .arg("ed25519")
     .arg("-vvv")
-    .arg(host)
+    // ssh-keyscan can result in a SIGPIPE error if it is provided something it
+    // doesn't know how to resolve for the hostname.  In the cases observed,
+    // it's been "localhost".  If 127.0.0.1 is provided, everything works fine.
+    .arg(resolved_host(host)?)
     .tap(|c| info!("Sending command '{:?}'...", c))
     .output()
-    .map_err(AppError::SshSpawnProcessError)
+    .map_err(AppError::SshKeyscanCommandSpawnProcessError)
     ?;
   let stdout = String::from_utf8_lossy(&result.stdout)
       .tap(|out| {
@@ -95,7 +166,6 @@ pub fn ssh_keyscan(host: &str, port: u16) -> Result<Vec<KeyscanEntry>, AppError>
       .tap(|out| {
         info!("ssh-keyscan stderr:\n{}", out);
       });
-
   if result.status.success() {
     stdout
       .split("\n")
@@ -103,27 +173,22 @@ pub fn ssh_keyscan(host: &str, port: u16) -> Result<Vec<KeyscanEntry>, AppError>
       // Skip the empty line.
       // TODO: Do this without copying the string.
       .filter(|x| x.to_string() != "")
-      .map(|s| {
-        let segments = s
-          .split(" ")
-          .into_iter()
-          .collect::<Vec<&str>>();
-        Ok(KeyscanEntry {
-          r#type: segments
-            .get(1)
-            .ok_or(AppError::SshKeyscanParseError(format!(
-              "key_type missing for {}.",
-              s,
-            )))?
-            .to_string(),
-          key_data: segments
-            .get(2)
-            .ok_or(AppError::SshKeyscanParseError(format!(
-              "key_data missing for {}.",
-              s,
-            )))?
-            .to_string(),
-        })
+      .map(|x| {
+        KeyscanEntry::parse(
+          // The first segment from ssh-keyscan will be the host and port in the
+          // form of:
+          // [127.0.0.1]:17022
+          // or:
+          // 127.0.0.1
+          // We need to skip it.
+          &x
+            .split(" ")
+            .into_iter()
+            .skip(1)
+            .collect::<Vec<&str>>()
+            .join(" ")
+            .tap(|x| debug!("Parsing keyscan entry '{}'...", x))
+        )
       })
       .collect::<Result<Vec<KeyscanEntry>, AppError>>()
   } else {
@@ -132,10 +197,20 @@ pub fn ssh_keyscan(host: &str, port: u16) -> Result<Vec<KeyscanEntry>, AppError>
         code,
         stderr.to_string(),
       ),
-      None => AppError::SshKeyscanCommandWtfError(
-        Signal::try_from(result.status.signal().unwrap()).unwrap().as_str().to_string(),
-        stderr.to_string(),
-      ),
+      None => {
+        let signal = Signal::try_from(result.status.signal().unwrap()).unwrap();
+        // Treat SIGPIPE separately because we can poll for more information on
+        // the error potentially.
+        match signal {
+          Signal::SIGPIPE => AppError::SshKeyscanCommandSigPipeError(
+            stderr.to_string(),
+          ),
+           _ => AppError::SshKeyscanCommandSignalError(
+            signal.as_str().to_string(),
+            stderr.to_string(),
+          )
+        }
+      },
     })
   }
 }

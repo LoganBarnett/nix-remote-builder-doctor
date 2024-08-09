@@ -6,7 +6,7 @@
 use crate::{
   command::command_with_stdin,
   error::AppError,
-  ssh_utils::ssh_keyscan,
+  ssh_utils::{KeyscanEntry, ssh_keyscan},
   test::{
     MachineTestContext,
     Test,
@@ -27,13 +27,14 @@ impl Test for MatchingKeysTest  {
       context.machine.url.port().unwrap(),
     )
       .and_then(|keyscan_entries| {
+        let machine_key = KeyscanEntry::parse(
+          &context.machine.host_public_key,
+        )?;
         if keyscan_entries
           // For now, until I can figure out the borrowing of a nested loop.
           .clone()
           .into_iter()
-          .any(|entry| {
-            entry.key_data == context.machine.host_public_key
-          }) {
+          .any(|entry| entry.key_data == machine_key.key_data) {
             Ok(TestResult::Pass(PassData {
               context: context.clone(),
               test_name: "MatchingKeysTest".into(),
@@ -45,7 +46,7 @@ impl Test for MatchingKeysTest  {
               reason: format!(
                 "None of the keys from the host matched the key found in \
                  /etc/machines/nix.  \n Machine key:\n{}\n Scanned keys:\n{}",
-                context.machine.host_public_key,
+                machine_key.key_data,
                 keyscan_entries
                   .into_iter()
                   .map(|ks| {
@@ -59,12 +60,27 @@ impl Test for MatchingKeysTest  {
           }
       })
       .or_else(|e| {
-        Ok(TestResult::Fail(FailData {
-          context: context.clone(),
-          test_name: "MatchingKeysTest".into(),
-          reason: format!("{:?}", e),
-          suggestion: "Figure it out".into(),
-        }))
+        match e {
+          AppError::SshKeyscanCommandSigPipeError(_) => {
+            Ok(TestResult::Fail(FailData {
+            context: context.clone(),
+            test_name: "MatchingKeysTest".into(),
+            reason: format!("{:?}", e),
+            suggestion:
+              // TODO: Have this automatically wrapped to 80 chars.
+              "ssh-keyscan failed with SIGPIPE and that means the remote sshd \
+               instance disconnected with a preauth failure (see sshd logs for \
+               details).  This means the host key type is incorrect.  This \
+               test assumes ed25519 as the type.".into(),
+          }))
+          },
+          _ => Ok(TestResult::Fail(FailData {
+            context: context.clone(),
+            test_name: "MatchingKeysTest".into(),
+            reason: format!("{:?}", e),
+            suggestion: "Unknown error running ssh-keyscan.".into(),
+          })),
+        }
       })
   }
 }

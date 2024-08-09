@@ -2,7 +2,7 @@ use owo_colors::OwoColorize;
 use tabled::{builder::Builder, settings::Style};
 
 
-use crate::test::{MachineTestResult, TestResult};
+use crate::test::{ConclusiveAction, MachineTestResult, TestResult};
 
 // pub struct TestResultTableRecord {
 //   pub hostname: String,
@@ -14,8 +14,8 @@ pub fn table_print(records: &Vec<MachineTestResult>) -> () {
   let rows = vec!(
     vec!(vec!(
       "Host".into(),
-      "Connection".into(),
       "Matching Keys".into(),
+      "Connection".into(),
       "Remote Build".into(),
     )),
     records
@@ -29,6 +29,7 @@ pub fn table_print(records: &Vec<MachineTestResult>) -> () {
              match result {
                TestResult::Pass(_) => result.to_string().green().to_string(),
                TestResult::Fail(_) => result.to_string().red().to_string(),
+               TestResult::Inconclusive(_) => result.to_string().yellow().to_string(),
              }
            })
            .collect::<Vec<String>>(),
@@ -54,6 +55,16 @@ pub fn suggestions_print(records: &Vec<MachineTestResult>) -> () {
           // Probably no type refinement available in Rust.  Would be nice to
           // know for sure.
           match result {
+            TestResult::Inconclusive(data) => {
+              match &data.action {
+                ConclusiveAction::ManualInstruction(instruction) => {
+                  instruction.clone()
+                },
+                ConclusiveAction::TestRequest(data) => {
+                  format!("See {}", data.requested_test_name)
+                },
+              }
+            },
             TestResult::Pass(data) => "".into(),
             TestResult::Fail(data) => format!(
               "Test {} is {} for test failed.\n  Reason: {}\n  Suggestion: {}",

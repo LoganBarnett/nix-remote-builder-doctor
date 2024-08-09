@@ -19,13 +19,12 @@ impl Test for RemoteBuildTest {
         info!("Connected in remote build test.  Running...");
         let output = ssh.run("nix build nixpkgs#hello")?;
         ssh.disconnect()?;
-        if output.status == 0 {
-          Ok(TestResult::Pass(PassData {
+        match output.status {
+          0 => Ok(TestResult::Pass(PassData {
             context: context.clone(),
             test_name: "Remote Build".to_string(),
-          }))
-        } else {
-          Ok(TestResult::Fail(FailData {
+          })),
+          _ => Ok(TestResult::Fail(FailData {
             // TODO: Should be stderr or both.
             reason: format!(
               "exit code: {}\nstdout:{}\nstderr: {}",
@@ -36,7 +35,7 @@ impl Test for RemoteBuildTest {
             context: context.clone(),
             suggestion: "No suggestions yet.".to_string(),
             test_name: "Remote Build".to_string(),
-          }))
+          })),
         }
       })
       .or_else(|e| {
