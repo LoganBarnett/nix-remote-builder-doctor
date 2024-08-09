@@ -12,6 +12,35 @@ it.
 
 This is a very immature program currently and needs a lot of work.
 
+** Installing
+
+Clone the source, =cargo build=.
+
+** Running
+
+You must execute this as root, or =nix-remote-builder-doctor= won't be able to
+view the files necessary to establish the SSH connections.  But because of how
+=cargo= works, you'll need to do a build as your normal user.
+
+#+begin_src shell :results output drawer
+cargo build
+sudo target/debug/nix-remote-builder-doctor
+#+end_src
+
+#+RESULTS:
+:BEGIN:
+╭────────────────┬───────────────┬────────────┬──────────────┬───────────────────────╮
+│ Host           │ Matching Keys │ Connection │ Remote Build │ Local To Remote Build │
+├────────────────┼───────────────┼────────────┼──────────────┼───────────────────────┤
+│ localhost      │ Pass          │ Pass       │ Fail         │ Pass                  │
+│ nickel.proton  │ Pass          │ Pass       │ Pass         │ Pass                  │
+│ lithium.proton │ Pass          │ Pass       │ Pass         │ Pass                  │
+╰────────────────┴───────────────┴────────────┴──────────────┴───────────────────────╯
+:END:
+
+You can add =-v= several times to increase the verbosity (=-v= for one level of
+verbosity, =-vvv= for three levels).
+
 ** Tests
 *** Current Tests
 
