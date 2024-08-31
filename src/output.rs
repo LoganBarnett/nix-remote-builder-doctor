@@ -66,9 +66,9 @@ pub fn suggestions_print(records: &Vec<MachineTestResult>) -> () {
                 },
               }
             },
-            TestResult::Pass(data) => "".into(),
+            TestResult::Pass(_data) => "".into(),
             TestResult::Fail(data) => format!(
-              "Test {} is {} for test failed.\n  Reason: {}\n  Suggestion: {}",
+              "Test {} for {} has failed.\n  Reason: {}\n  Suggestion: {}",
               record.machine.url.host_str().unwrap_or("unknown host"),
               data.test_name,
               data.reason,
