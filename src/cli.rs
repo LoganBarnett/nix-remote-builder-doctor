@@ -21,6 +21,13 @@ pub struct Cli {
     help = "Exclude hosts containing the provided string.  Specify multiple times for additional excludes.",
   )]
   pub exclude: Vec<String>,
+  #[arg(
+    env,
+    short,
+    long,
+    help = "Include only hosts containing the provided string.  Specify multiple times for additional includes (OR).",
+  )]
+  pub include: Vec<String>,
   #[command(flatten)]
   pub verbosity: clap_verbosity_flag::Verbosity,
 }

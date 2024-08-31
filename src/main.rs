@@ -86,6 +86,22 @@ fn host_exclude(
     .collect()
 }
 
+fn host_include(
+  includes: &Vec<String>,
+  machines: Vec<Machine>,
+) -> Vec<Machine> {
+  machines
+    .into_iter()
+    .filter(move |machine| {
+      includes
+        .into_iter()
+        .any(|include| {
+          machine.url.host_str().unwrap_or("").contains(include)
+        })
+    })
+    .collect()
+}
+
 fn main() -> Result<(), AppError> {
   let cli = Cli::parse();
   logger::logger_init(&cli.verbosity)?;
@@ -107,6 +123,7 @@ fn main() -> Result<(), AppError> {
         .collect::<Result<Vec<Machine>, AppError>>()
     })
     .map(partial!(host_exclude => &cli.exclude, _))
+    .map(partial!(host_include => &cli.include, _))
     ?;
   let context = AppTestContext {};
   // output(&test_results(&context, &machines)?);
