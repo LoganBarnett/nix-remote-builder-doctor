@@ -22,6 +22,10 @@ pub struct Cli {
   )]
   pub exclude: Vec<String>,
   #[arg(
+    // Setting the default to a single empty string means we see if any match
+    // includes an empty string.  Every match will, so everything is included by
+    // default.
+    default_values_t = vec!("".to_string()),
     env,
     short,
     long,
