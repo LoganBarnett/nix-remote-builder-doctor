@@ -77,18 +77,24 @@ impl Ssh for Ssh2 {
 
   fn run(&self, command: &str) -> Result<CommandOutput, AppError> {
     debug!("Starting command: {}", command);
-    // TODO: Clean up unwraps.
     let mut channel = self.session.channel_session()
       .map_err(AppError::SshChannelOpenFailure)?;
-    channel
-      .exec(command)
-      .map_err(AppError::SshCommandExecuteError);
-    let mut s = String::new();
-    // Is this just stdout?
     let _ = channel
-      .read_to_string(&mut s)
+      .exec(command)
+      .map_err(AppError::SshCommandExecuteError)?;
+    let mut stdout = String::new();
+    // This is stdout by default.  There's a stderr on the Channel type as well
+    // (see below for its use).
+    let _ = channel
+      .read_to_string(&mut stdout)
       .map_err(AppError::SshChannelReadError)?;
-    trace!("Command result: {}", s);
+    let mut stderr = String::new();
+    let _ = channel
+      .stderr()
+      .read_to_string(&mut stderr)
+      .map_err(AppError::SshChannelReadError)?;
+    trace!("Command stdout: {}", stdout);
+    trace!("Command stderr: {}", stderr);
     channel.wait_close().map_err(AppError::SshChannelCloseError)?;
     let exit_status = channel
       .exit_status()
@@ -98,8 +104,8 @@ impl Ssh for Ssh2 {
       // This is actually a u8 but I'd have to change the interface.  Do that
       // later.
       status: exit_status as u16,
-      stdout: s,
-      stderr: "".to_string(),
+      stdout,
+      stderr,
     })
   }
 
@@ -116,4 +122,5 @@ impl Ssh for Ssh2 {
   fn is_authenticated(&self) -> bool {
     self.authenticated
   }
+
 }
