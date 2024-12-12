@@ -1,6 +1,7 @@
 mod age;
 mod command;
 mod dns_utils;
+mod dns_test;
 mod test;
 mod machine;
 mod error;
@@ -20,6 +21,7 @@ use matching_keys_test::MatchingKeysTest;
 use output::{suggestions_print, table_print};
 use partial_application::partial;
 use crate::{
+  dns_test::DnsTest,
   error::AppError,
   connection_test::ConnectionTest,
   local_to_remote_build_test::LocalToRemoteBuildTest,
@@ -62,6 +64,7 @@ fn machine_test_results(
   Ok(MachineTestResult {
     machine: machine.clone(),
     test_results: vec!(
+      DnsTest {}.test(&context)?,
       MatchingKeysTest {}.test(&context)?,
       ConnectionTest {}.test(&context)?,
       RemoteBuildTest {}.test(&context)?,
