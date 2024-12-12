@@ -14,6 +14,8 @@ pub fn table_print(records: &Vec<MachineTestResult>) -> () {
   let rows = vec!(
     vec!(vec!(
       "Host".into(),
+      // Add new tests after the Host entry above.
+      "DNS".into(),
       "Matching Keys".into(),
       "Connection".into(),
       "Remote Build".into(),
@@ -69,8 +71,8 @@ pub fn suggestions_print(records: &Vec<MachineTestResult>) -> () {
             TestResult::Pass(_data) => "".into(),
             TestResult::Fail(data) => format!(
               "Test {} for {} has failed.\n  Reason: {}\n  Suggestion: {}",
-              record.machine.url.host_str().unwrap_or("unknown host"),
               data.test_name,
+              record.machine.url.host_str().unwrap_or("unknown host"),
               data.reason,
               data.suggestion,
             ).to_string(),
