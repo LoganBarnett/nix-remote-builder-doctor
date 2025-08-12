@@ -472,8 +472,9 @@ checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
 
 [[package]]
 name = "libssh2-sys"
-version = "0.3.0"
-source = "git+https://github.com/Jeidnx/ssh2-rs.git#20155654ce7abbb8922fe9f83125044c009a40c3"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "220e4f05ad4a218192533b300327f5150e809b54c4ec83b5a1d91833601811b9"
 dependencies = [
  "cc",
  "libc",
@@ -798,8 +799,9 @@ checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
 name = "ssh2"
-version = "0.9.4"
-source = "git+https://github.com/Jeidnx/ssh2-rs.git#20155654ce7abbb8922fe9f83125044c009a40c3"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f84d13b3b8a0d4e91a2629911e951db1bb8671512f5c09d7d4ba34500ba68c8"
 dependencies = [
  "bitflags",
  "libc",

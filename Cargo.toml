@@ -29,10 +29,8 @@ owo-colors = "4.0.0"
 partial_application = "0.2.1"
 # Handle regular expressions.
 regex = "1.10.5"
-# russh = { version = "0.43.0", features = ["openssl"] }
-# ssh2 = { version = "0.9.4" }
 # Establish and use SSH connections.
-ssh2 = { git = "https://github.com/Jeidnx/ssh2-rs.git" }
+ssh2 = "0.9.5"
 # Send our logs to stderr to unclutter stdout's actual output.
 stderrlog = "0.6.0"
 # Helps display enums.
