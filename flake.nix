@@ -5,41 +5,48 @@
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
-  outputs = { self, nixpkgs, rust-overlay }@inputs: {
+  outputs = { self, nixpkgs, rust-overlay }@inputs: let
+    shell-overlays = [
+      (import rust-overlay)
+      (final: prev: {
+        # Use final so we can benefit from rust-overlay.
+        # This will include cargo, rustfmt, and other things from Rust.
+        rust-pinned = prev.rust-bin.stable.latest.default.override {
+          extensions = [
+            # For rust-analyzer and others.  See
+            # https://nixos.wiki/wiki/Rust#Shell.nix_example for some details.
+            "rust-src"
+            "rust-analyzer"
+            "rustfmt-preview"
+          ];
+        };
+      })
+    ];
+  in {
 
     devShells.aarch64-darwin.default = let
       system = "aarch64-darwin";
-      overlays = [
-        (import rust-overlay)
-      ];
       pkgs = import nixpkgs {
-        inherit overlays system;
-      };
-      rust = pkgs.rust-bin.stable.latest.default.override {
-        extensions = [
-          # For rust-analyzer and others.  See
-          # https://nixos.wiki/wiki/Rust#Shell.nix_example for some details.
-          "rust-src"
-          "rust-analyzer"
-          "rustfmt-preview"
-        ];
+        overlays = shell-overlays;
+        inherit system;
       };
     in pkgs.mkShell {
       buildInputs = [
         pkgs.clang
         pkgs.darwin.apple_sdk.frameworks.Security
         pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-        pkgs.cargo
         pkgs.openssl
         pkgs.libssh2
         # To help with finding openssl.
         pkgs.pkg-config
-        rust
-        pkgs.rustfmt
-        pkgs.rustup
+        pkgs.rust-pinned
       ];
       shellHook = ''
       '';
+    };
+
+    overlays.default = final: prev: {
+      nix-remote-builder-doctor = prev.callPackage ./derivation.nix {};
     };
 
   };
