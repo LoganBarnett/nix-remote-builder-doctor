@@ -1,11 +1,13 @@
 {
   description = "";
   inputs = {
-    nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
+    nixpkgs.url = github:NixOS/nixpkgs/25.11;
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
   outputs = { self, nixpkgs, rust-overlay }@inputs: let
+    forAllSystems = nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed;
+
     shell-overlays = [
       (import rust-overlay)
       (final: prev: {
@@ -24,26 +26,25 @@
     ];
   in {
 
-    devShells.aarch64-darwin.default = let
-      system = "aarch64-darwin";
+    devShells = forAllSystems (system: let
       pkgs = import nixpkgs {
         overlays = shell-overlays;
         inherit system;
       };
-    in pkgs.mkShell {
-      buildInputs = [
-        pkgs.clang
-        pkgs.darwin.apple_sdk.frameworks.Security
-        pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-        pkgs.openssl
-        pkgs.libssh2
-        # To help with finding openssl.
-        pkgs.pkg-config
-        pkgs.rust-pinned
-      ];
-      shellHook = ''
-      '';
-    };
+    in {
+      default = pkgs.mkShell {
+        buildInputs = [
+          pkgs.clang
+          pkgs.openssl
+          pkgs.libssh2
+          # To help with finding openssl.
+          pkgs.pkg-config
+          pkgs.rust-pinned
+        ];
+        shellHook = ''
+        '';
+      };
+    });
 
     overlays.default = final: prev: {
       nix-remote-builder-doctor = prev.callPackage ./derivation.nix {};
