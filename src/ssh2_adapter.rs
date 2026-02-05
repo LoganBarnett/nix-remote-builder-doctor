@@ -11,6 +11,8 @@ use crate::{machine::Machine, ssh::{CommandOutput, Ssh}, AppError};
 pub struct Ssh2 {
   pub authenticated: bool,
   pub session: Session,
+  pub hostname: Option<String>,
+  pub port: Option<u16>,
 }
 
 impl Ssh2 {
@@ -19,6 +21,8 @@ impl Ssh2 {
     Ssh2 {
       authenticated: false,
       session: Session::new().unwrap(),
+      hostname: None,
+      port: None,
     }
   }
 
@@ -28,8 +32,14 @@ impl Ssh for Ssh2 {
 
   fn connect(&mut self, machine: &Machine) -> Result<(), AppError> {
     let host = machine.url.host_str().ok_or(AppError::HostMissingError())?;
+    let port = machine.url.port().unwrap_or(22);
+
+    // Store hostname and port for later use (e.g., host key checking)
+    self.hostname = Some(host.to_string());
+    self.port = Some(port);
+
     let tcp = TcpStream::connect(
-      format!("{}:{}", host, machine.url.port().unwrap_or(22)),
+      format!("{}:{}", host, port),
     )
       .map_err(AppError::HostConnectionFailedError)?;
     // let mut sesh = Session::new()
@@ -121,6 +131,72 @@ impl Ssh for Ssh2 {
 
   fn is_authenticated(&self) -> bool {
     self.authenticated
+  }
+
+  fn check_host_key(&self) -> Result<bool, AppError> {
+    use ssh2::{CheckResult, KnownHostFileKind};
+    use std::path::PathBuf;
+
+    // Get the hostname and port from the stored values
+    let hostname = self.hostname.as_ref()
+      .ok_or_else(|| AppError::SshHostKeyError(
+        ssh2::Error::from_errno(ssh2::ErrorCode::Session(-1))
+      ))?;
+    let port = self.port.unwrap_or(22);
+
+    // Get the host key from the session
+    let (host_key, _key_type) = self.session.host_key()
+      .ok_or_else(|| AppError::SshHostKeyError(
+        ssh2::Error::from_errno(ssh2::ErrorCode::Session(-1))
+      ))?;
+
+    // Create known_hosts checker
+    let mut known_hosts = self.session.known_hosts()
+      .map_err(AppError::SshKnownHostsError)?;
+
+    // Try to read the user's known_hosts file
+    let mut known_hosts_path = PathBuf::from(std::env::var("HOME").unwrap_or_default());
+    known_hosts_path.push(".ssh");
+    known_hosts_path.push("known_hosts");
+
+    // Read the known_hosts file if it exists
+    if known_hosts_path.exists() {
+      debug!("Reading known_hosts from: {:?}", known_hosts_path);
+      known_hosts.read_file(&known_hosts_path, KnownHostFileKind::OpenSSH)
+        .map_err(AppError::SshKnownHostsFileReadError)?;
+    } else {
+      debug!("No known_hosts file found at: {:?}", known_hosts_path);
+      // No known_hosts file, so the check will fail
+      return Ok(false);
+    }
+
+    // Format the hostname with port if non-standard
+    let host_to_check = if port != 22 {
+      format!("[{}]:{}", hostname, port)
+    } else {
+      hostname.clone()
+    };
+
+    // Check the host key against known_hosts
+    let check_result = known_hosts.check(&host_to_check, host_key);
+
+    debug!("Host key check result for {}: {:?}", host_to_check, check_result);
+
+    match check_result {
+      CheckResult::Match => Ok(true),
+      CheckResult::NotFound => {
+        debug!("Host key not found in known_hosts for: {}", host_to_check);
+        Ok(false)
+      },
+      CheckResult::Mismatch => {
+        warn!("Host key mismatch detected for: {}", host_to_check);
+        Ok(false)
+      },
+      CheckResult::Failure => {
+        debug!("Host key check failed for: {}", host_to_check);
+        Ok(false)
+      },
+    }
   }
 
 }

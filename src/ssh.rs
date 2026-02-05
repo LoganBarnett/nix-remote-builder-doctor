@@ -13,6 +13,8 @@ pub trait Ssh {
 
   fn is_authenticated(&self) -> bool;
 
+  fn check_host_key(&self) -> Result<bool, AppError>;
+
 }
 
 pub struct CommandOutput {

@@ -9,6 +9,7 @@ mod nix_store_permission_test;
 mod ssh;
 mod ssh_utils;
 mod connection_test;
+mod host_key_test;
 mod local_to_remote_build_test;
 mod ssh2_adapter;
 mod remote_build_test;
@@ -24,6 +25,7 @@ use crate::{
   dns_test::DnsTest,
   error::AppError,
   connection_test::ConnectionTest,
+  host_key_test::HostKeyTest,
   local_to_remote_build_test::LocalToRemoteBuildTest,
   remote_build_test::RemoteBuildTest,
   test::{
@@ -67,6 +69,7 @@ fn machine_test_results(
       DnsTest {}.test(&context)?,
       MatchingKeysTest {}.test(&context)?,
       ConnectionTest {}.test(&context)?,
+      HostKeyTest {}.test(&context)?,
       RemoteBuildTest {}.test(&context)?,
       LocalToRemoteBuildTest {}.test(&context)?,
     ),

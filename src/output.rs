@@ -18,6 +18,7 @@ pub fn table_print(records: &Vec<MachineTestResult>) -> () {
       "DNS".into(),
       "Matching Keys".into(),
       "Connection".into(),
+      "Host Key".into(),
       "Remote Build".into(),
       "Local To Remote Build".into(),
     )),
