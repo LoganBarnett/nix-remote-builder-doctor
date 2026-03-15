@@ -45,3 +45,27 @@ impl Test for DnsTest {
     }
   }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::test_helpers::*;
+
+    #[test]
+    fn test_dns_resolution_localhost() {
+        let context = create_test_context("localhost");
+        let dns_test = DnsTest {};
+
+        let result = dns_test.test(&context).unwrap();
+        assert_test_passes(&result, "DNS");
+    }
+
+    #[test]
+    fn test_dns_resolution_invalid_host() {
+        let context = create_test_context("this-host-definitely-does-not-exist.invalid");
+        let dns_test = DnsTest {};
+
+        let result = dns_test.test(&context).unwrap();
+        assert_test_fails(&result, "DNS");
+    }
+}

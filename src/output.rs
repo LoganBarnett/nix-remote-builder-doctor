@@ -213,3 +213,7 @@ pub fn json_print(records: &Vec<MachineTestResult>) -> () {
 
   println!("{}", serde_json::to_string_pretty(&output).unwrap());
 }
+
+#[cfg(test)]
+#[path = "output_tests.rs"]
+mod output_tests;

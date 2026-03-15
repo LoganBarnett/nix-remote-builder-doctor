@@ -1,22 +1,5 @@
-mod age;
-mod command;
-mod dns_utils;
-mod dns_test;
-mod test;
-mod machine;
-mod error;
-mod nix_store_permission_test;
-mod ssh;
-mod ssh_utils;
-mod connection_test;
-mod host_key_test;
-mod local_to_remote_build_test;
-mod ssh2_adapter;
-mod remote_build_test;
-mod cli;
-mod output;
-mod matching_keys_test;
-mod logger;
+// Use the library crate's modules
+use nix_remote_builder_doctor::*;
 
 use matching_keys_test::MatchingKeysTest;
 use output::{suggestions_print, table_print, json_print};
