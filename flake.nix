@@ -28,6 +28,9 @@
     # NixOS module for the service
     nixosModules.default = ./nixos-module.nix;
 
+    # Darwin module for macOS
+    darwinModules.default = ./darwin-module.nix;
+
     devShells = forAllSystems (system: let
       pkgs = import nixpkgs {
         overlays = shell-overlays;
