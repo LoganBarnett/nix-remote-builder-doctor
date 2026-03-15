@@ -4,7 +4,7 @@ rustPlatform.buildRustPackage {
   pname = "nix-remote-builder-doctor";
   version = "0.0.0";
   src = ./.;
-  cargoHash = "sha256-AgeWwgLgzDSfHzyzE52293xv+Mr5pso5xlvjF9/UWjo=";
+  cargoHash = "sha256-cKm6NyKLvRYj5kj65ywOND9Urf9wwZy9vTyBKu5HYBo=";
   nativeBuildInputs = [ pkgs.pkg-config ];
   buildInputs = [ pkgs.openssl pkgs.libssh2 ];
   meta = {
