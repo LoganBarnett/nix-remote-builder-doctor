@@ -8,13 +8,13 @@ mod tests {
     fn create_test_machine(hostname: &str) -> Machine {
         Machine {
             url: Url::parse(&format!("ssh://builder@{}", hostname)).unwrap(),
-            systems: vec!["x86_64-linux".to_string()],
-            ssh_key: "/tmp/test_key".to_string(),
+            platforms: vec!["x86_64-linux".to_string()],
+            user_private_key: "test_key_content".to_string(),
+            user_private_key_path: "/tmp/test_key".to_string(),
+            host_public_key: "test_host_public_key".to_string(),
             max_jobs: 1,
             speed_factor: 1,
             supported_features: vec![],
-            mandatory_features: vec![],
-            public_host_key: None,
         }
     }
 
@@ -60,14 +60,8 @@ mod tests {
             },
         ];
 
-        // Capture stdout
-        let mut output = Vec::new();
-        {
-            use std::io::Write;
-            // This is a simplified test - in real code we'd need to capture stdout
-            // For now, let's just verify the function doesn't panic
-            json_print(&results);
-        }
+        // Test that the function doesn't panic
+        json_print(&results);
 
         // Basic validation that function completes without panic
         assert_eq!(results.len(), 1);

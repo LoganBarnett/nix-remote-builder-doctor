@@ -7,13 +7,13 @@ pub mod test_helpers {
     pub fn create_test_machine(hostname: &str) -> Machine {
         Machine {
             url: Url::parse(&format!("ssh://builder@{}", hostname)).unwrap(),
-            systems: vec!["x86_64-linux".to_string()],
-            ssh_key: "/tmp/test_key".to_string(),
+            platforms: vec!["x86_64-linux".to_string()],
+            user_private_key: "test_key_content".to_string(),
+            user_private_key_path: "/tmp/test_key".to_string(),
+            host_public_key: "test_host_public_key".to_string(),
             max_jobs: 1,
             speed_factor: 1,
             supported_features: vec![],
-            mandatory_features: vec![],
-            public_host_key: None,
         }
     }
 
