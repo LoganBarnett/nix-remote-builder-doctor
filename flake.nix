@@ -25,6 +25,8 @@
       })
     ];
   in {
+    # NixOS module for the service
+    nixosModules.default = ./nixos-module.nix;
 
     devShells = forAllSystems (system: let
       pkgs = import nixpkgs {
