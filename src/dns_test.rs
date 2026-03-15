@@ -52,6 +52,7 @@ mod tests {
     use crate::test_helpers::test_helpers::*;
 
     #[test]
+    #[ignore]  // Requires network access - run with: cargo test -- --ignored
     fn test_dns_resolution_valid_host() {
         // Use a well-known host that should resolve even in sandboxed environments
         let context = create_test_context("8.8.8.8");
@@ -62,6 +63,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]  // Requires network access - run with: cargo test -- --ignored
     fn test_dns_resolution_invalid_host() {
         let context = create_test_context("this-host-definitely-does-not-exist.invalid");
         let dns_test = DnsTest {};
