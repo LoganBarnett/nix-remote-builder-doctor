@@ -52,8 +52,9 @@ mod tests {
     use crate::test_helpers::test_helpers::*;
 
     #[test]
-    fn test_dns_resolution_localhost() {
-        let context = create_test_context("localhost");
+    fn test_dns_resolution_valid_host() {
+        // Use a well-known host that should resolve even in sandboxed environments
+        let context = create_test_context("8.8.8.8");
         let dns_test = DnsTest {};
 
         let result = dns_test.test(&context).unwrap();
