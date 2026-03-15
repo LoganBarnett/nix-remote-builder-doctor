@@ -50,5 +50,12 @@
       nix-remote-builder-doctor = prev.callPackage ./derivation.nix {};
     };
 
+    packages = forAllSystems (system: let
+      pkgs = import nixpkgs { inherit system; };
+    in {
+      default = pkgs.callPackage ./derivation.nix {};
+      nix-remote-builder-doctor = pkgs.callPackage ./derivation.nix {};
+    });
+
   };
 }
