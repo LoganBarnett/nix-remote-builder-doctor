@@ -1,4 +1,10 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum OutputFormat {
+  Table,
+  Json,
+}
 
 #[derive(Parser)]
 #[command(
@@ -32,6 +38,20 @@ pub struct Cli {
     help = "Include only hosts containing the provided string.  Specify multiple times for additional includes (OR).",
   )]
   pub include: Vec<String>,
+  #[arg(
+    short = 'f',
+    long,
+    value_enum,
+    default_value = "table",
+    help = "Output format (table or json).",
+  )]
+  pub format: OutputFormat,
+  #[arg(
+    short = 't',
+    long = "test",
+    help = "Run only specific tests. Available tests: dns, matching-keys, connection, host-key, remote-build, local-to-remote-build. Specify multiple times for additional tests.",
+  )]
+  pub tests: Vec<String>,
   #[command(flatten)]
   pub verbosity: clap_verbosity_flag::Verbosity,
 }

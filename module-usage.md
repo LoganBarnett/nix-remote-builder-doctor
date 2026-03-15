@@ -88,7 +88,11 @@ Read-only option that contains the path to the generated goss configuration.
 
 ## Implementation Notes
 
-Since `nix-remote-builder-doctor` doesn't currently support JSON output, the individual test check scripts parse the table output. The scripts look for specific test results in the output table and return appropriate exit codes.
+The module uses `nix-remote-builder-doctor`'s JSON output format for reliable parsing. Individual test check scripts:
+- Run only the specific test using `--test <test-name>`
+- Parse JSON output with `jq` to extract test status
+- Provide detailed failure reasons and suggestions
+- Treat skipped tests as passing to avoid cascading alerts
 
 The check scripts support a `DEBUG=1` environment variable to show the raw doctor output for troubleshooting.
 

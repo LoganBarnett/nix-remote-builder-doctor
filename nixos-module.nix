@@ -14,13 +14,11 @@ let
   ];
 
   # Generate a check script for a specific builder and test
-  # Since nix-remote-builder-doctor doesn't support JSON output yet,
-  # we parse the table output to check individual test results
   makeCheckScript = builder: test: pkgs.writeShellScriptBin "nix-remote-builder-doctor-check-${builder.name}-${test.name}" ''
     set -euo pipefail
 
-    # Run the doctor for this specific builder
-    OUTPUT=$(${cfg.package}/bin/nix-remote-builder-doctor --include ${builder.hostName} 2>&1)
+    # Run the doctor for this specific builder with JSON output and specific test
+    OUTPUT=$(${cfg.package}/bin/nix-remote-builder-doctor --format json --include ${builder.hostName} --test ${test.name} 2>&1)
     EXIT_CODE=$?
 
     # Debug output
@@ -30,69 +28,60 @@ let
       echo "=== Exit code: $EXIT_CODE ==="
     fi
 
-    # Extract the table from the output
-    TABLE=$(echo "$OUTPUT" | ${pkgs.gnugrep}/bin/grep -A 100 "╭─" || true)
-
-    if [ -z "$TABLE" ]; then
-      echo "Could not find output table from nix-remote-builder-doctor"
+    # If the doctor itself failed, report that
+    if [ $EXIT_CODE -ne 0 ]; then
+      echo "nix-remote-builder-doctor failed to run: $OUTPUT"
       exit 1
     fi
 
-    # Find the row for our host
-    HOST_ROW=$(echo "$TABLE" | ${pkgs.gnugrep}/bin/grep -E "│\s*${builder.hostName}" || true)
+    # Parse JSON output to check if this specific test passed
+    TEST_STATUS=$(echo "$OUTPUT" | ${pkgs.jq}/bin/jq -r --arg test "${test.displayName}" '
+      .builders[] |
+      select(.hostname == "${builder.hostName}") |
+      .checks[] |
+      select(.name == $test) |
+      .status
+    ')
 
-    if [ -z "$HOST_ROW" ]; then
-      echo "Could not find ${builder.hostName} in output"
+    # Handle missing test result
+    if [ -z "$TEST_STATUS" ]; then
+      echo "Test '${test.displayName}' not found in output for ${builder.hostName}"
       exit 1
     fi
 
-    # The table columns are: Host, DNS, Matching Keys, Connection, Host Key, Remote Build, Local To Remote Build
-    # Split the row and get the appropriate column
-    case "${test.name}" in
-      "dns")
-        COLUMN=2
-        ;;
-      "matching-keys")
-        COLUMN=3
-        ;;
-      "connection")
-        COLUMN=4
-        ;;
-      "host-key")
-        COLUMN=5
-        ;;
-      "remote-build")
-        COLUMN=6
-        ;;
-      "local-to-remote-build")
-        COLUMN=7
-        ;;
-      *)
-        echo "Unknown test: ${test.name}"
-        exit 1
-        ;;
-    esac
-
-    # Extract the test result from the appropriate column
-    # The row format is: │ hostname │ result │ result │ ...
-    TEST_RESULT=$(echo "$HOST_ROW" | ${pkgs.gawk}/bin/awk -F '│' "{print \$$((COLUMN + 1))}" | ${pkgs.coreutils}/bin/tr -d ' ')
-
-    # Check the result
-    case "$TEST_RESULT" in
-      *"Pass"*)
+    # Exit based on test status
+    case "$TEST_STATUS" in
+      "pass")
         echo "✓ ${test.displayName} test passed for ${builder.hostName}"
         exit 0
         ;;
-      *"Fail"*)
-        echo "✗ ${test.displayName} test failed for ${builder.hostName}"
-        exit 1
-        ;;
-      *"TestRequest"* | *"Inconclusive"*)
-        echo "⚠ ${test.displayName} test skipped for ${builder.hostName} (dependency failed)"
+      "skip")
+        # Get the skip reason if available
+        REASON=$(echo "$OUTPUT" | ${pkgs.jq}/bin/jq -r --arg test "${test.displayName}" '
+          .builders[] |
+          select(.hostname == "${builder.hostName}") |
+          .checks[] |
+          select(.name == $test) |
+          .message // "Dependency failed"
+        ')
+        echo "⚠ ${test.displayName} test skipped for ${builder.hostName}: $REASON"
         exit 0  # Consider skipped as non-failure for goss
         ;;
+      "fail")
+        # Get the failure details
+        FAILURE_INFO=$(echo "$OUTPUT" | ${pkgs.jq}/bin/jq -r --arg test "${test.displayName}" '
+          .builders[] |
+          select(.hostname == "${builder.hostName}") |
+          .checks[] |
+          select(.name == $test) |
+          "Reason: " + (.reason // "Unknown") + "\nSuggestion: " + (.suggestion // "Check configuration")
+        ')
+        echo "✗ ${test.displayName} test failed for ${builder.hostName}"
+        echo "$FAILURE_INFO"
+        exit 1
+        ;;
       *)
-        echo "Unknown test status: '$TEST_RESULT' for ${test.displayName} on ${builder.hostName}"
+        echo "Unknown test status: $TEST_STATUS"
         exit 1
         ;;
     esac
@@ -114,9 +103,12 @@ let
       [{
         name = "nix-remote-builder-doctor-${builder.name}";
         value = {
-          exec = "${cfg.package}/bin/nix-remote-builder-doctor --include ${builder.hostName}";
+          exec = "${cfg.package}/bin/nix-remote-builder-doctor --format json --include ${builder.hostName}";
           exit-status = 0;
           timeout = cfg.timeout;
+          stdout = [
+            "/\"overall_status\":\\s*\"healthy\"/"
+          ];
         };
       }] ++
       # Individual test checks
