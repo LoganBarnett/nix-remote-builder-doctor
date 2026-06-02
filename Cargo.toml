@@ -1,66 +1,145 @@
-[package]
-name = "nix-remote-builder-doctor"
+[workspace]
+resolver = "2"
+members = [
+    "crates/lib",
+    "crates/cli",
+    # CRATE_MEMBERS
+]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
+authors = ["Logan Barnett <logustus@gmail.com>"]
 license = "AGPL-3.0-or-later"
+repository = "https://github.com/LoganBarnett/nix-remote-builder-doctor"
 
-[lib]
-name = "nix_remote_builder_doctor"
-path = "src/lib.rs"
+[workspace.dependencies]
+# Foundation infrastructure crate (config, logging, CLI lifecycle).
+rust-template-foundation = { git = "https://github.com/LoganBarnett/rust-template.git" }
 
-[[bin]]
-name = "nix-remote-builder-doctor"
-path = "src/main.rs"
+# Logging and tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# Utilities — tap enables method chaining and reduces local variables
+# whose only purpose is to name an intermediate.  Prefer .tap() over
+# temporaries when it improves readability.
+tap = "1.0"
 
-# See https://doc.rust-lang.org/cargo/reference/profiles.html for more about
-# these build profiles.
+# CLI parsing
+clap = { version = "4.5", features = ["derive", "env"] }
+
+# Configuration
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Error handling
+thiserror = "2.0"
+
+# Testing
+tempfile = "3"
+
+# Domain-specific dependencies (preserved from pre-template layout).
+# Encode and decode base64 strings (host public keys in /etc/nix/machines).
+base64 = "0.22"
+# Compile-time-validated regex (drop-in for Regex::new(literal).unwrap()).
+lazy-regex = "3"
+# Unix signal classification (SIGPIPE detection on child process exits).
+nix = { version = "0.29", features = ["signal"] }
+# Terminal colors for the table output.
+owo-colors = "4"
+# Partial application macro for cleaner combinator pipelines.
+partial_application = "0.2"
+# Runtime regex (kept alongside lazy-regex for non-literal patterns).
+regex = "1.10"
+# SSH client (libssh2 bindings).
+ssh2 = "0.9"
+# Display impls derived from enum variants.
+strum = { version = "0.26", features = ["derive"] }
+# Pretty terminal tables.
+tabled = { version = "0.15", features = ["ansi"] }
+# Parse and produce URLs.
+url = "2.5"
+
+# JSON assertions for tests.
+assert-json-diff = "2.0"
+# Port finding for tests.
+portpicker = "0.1"
+
+# Shared library — keep the bare project name as the binary; the
+# library crate uses the `-lib` suffix to keep `nix-remote-builder-doctor`
+# free for the CLI binary so external consumers don't need to update
+# their references.
+nix-remote-builder-doctor-lib = { path = "crates/lib" }
+# WORKSPACE_DEPS
+
+# ============================================================================
+# BUILD PROFILES
+# ============================================================================
+# Without these settings, target/debug can easily reach 20-40 GB on
+# non-trivial projects.  Dependencies are the primary culprit.
+#
+# See https://doc.rust-lang.org/cargo/reference/profiles.html
+
 [profile.dev]
-# Prevent 36GB target/debug directories.
+# No debug symbols.  The debugger is rarely used and debug symbols are
+# the single largest contributor to target/ bloat.
+debug = false
+# Disable incremental compilation.  Incremental writes many small files
+# to target/debug/incremental/ that accumulate quickly; the compile-time
+# benefit rarely outweighs the disk cost for typical workflows.
+incremental = false
+
+[profile.dev.package."*"]
+# Optimize dependencies even in dev builds.  Libraries like tokio and
+# axum are bottlenecks when unoptimized; this makes the program run at
+# near-release speed during development with minimal extra compile time
+# on subsequent incremental builds.
+opt-level = 3
+
+[profile.release]
 debug = false
 
-[dependencies]
-# Encode and decode base64 strings.
-base64 = "0.22.1"
-# Command line argument parsing.
-clap = { version = "4.5.7", features = ["env", "derive", "wrap_help"] }
-# Allow us to derive verbosity from command line arguments.
-clap-verbosity-flag = "2.2.0"
-lazy_static = "1.5.0"
-# A generalized logger.
-log = "0.4.21"
-# Use Unix signals - helpful for determining SIGPIPE errors.
-nix = { version = "0.29.0", features = ["signal"] }
-# Pretty terminal colors.
-owo-colors = "4.0.0"
-# Give us functional programming partial application.
-partial_application = "0.2.1"
-# Handle regular expressions.
-regex = "1.10.5"
-# Serialization and deserialization framework
-serde = { version = "1.0", features = ["derive"] }
-# JSON support for serde
-serde_json = "1.0"
-# Establish and use SSH connections.
-ssh2 = "0.9.5"
-# Send our logs to stderr to unclutter stdout's actual output.
-stderrlog = "0.6.0"
-# Helps display enums.
-strum = { version = "0.26.2", features = [ "derive" ] }
-# Pretty tables in the terminal.
-tabled = { version = "0.15.0", features = ["ansi"] }
-# Function chaining to avoid needless local variables.
-tap = "1.0.1"
-# Parse and produce URLs.
-url = "2.5.1"
+# ============================================================================
+# LINTS
+# ============================================================================
+# Project-wide ban on the panicking variants of Result/Option, enforced
+# via clippy.  Test code is exempted by clippy.toml's
+# allow-unwrap-in-tests / allow-expect-in-tests, which cover both
+# #[cfg(test)] modules in src/ and integration tests under tests/.
+# Member crates opt in by setting [lints] workspace = true.
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
 
-[dev-dependencies]
-# Temporary directories for testing
-tempfile = "3.10"
-# JSON assertions for tests
-assert-json-diff = "2.0"
-# Process management for tests
-nix = { version = "0.29.0", features = ["signal", "process"] }
-# Port finding for tests
-portpicker = "0.1"
+# ----------------------------------------------------------------------------
+# Combinator preference: nudge toward the least powerful construct that
+# fits.  These flag manual reimplementations of standard combinators —
+# match-on-Option that could be Option::map, if-let-else that could be
+# map_or, and so on.  See llms.org "Rule of least power" for the
+# principle behind the set.
+#
+# Configured at "warn" rather than "deny" because some imperative forms
+# are genuinely clearer (multi-line bodies, side effects, nested control
+# flow); humans can override site-locally with #[allow(...)] and a
+# one-line reason.  The defaults push agents toward the combinator form.
+manual_map = "warn"
+manual_filter = "warn"
+manual_filter_map = "warn"
+manual_find = "warn"
+manual_find_map = "warn"
+manual_flatten = "warn"
+manual_let_else = "warn"
+manual_ok_or = "warn"
+manual_unwrap_or = "warn"
+manual_unwrap_or_default = "warn"
+option_if_let_else = "warn"
+map_unwrap_or = "warn"
+needless_collect = "warn"
+unnecessary_fold = "warn"
+question_mark = "warn"
+single_match_else = "warn"
+collapsible_match = "warn"
+redundant_pattern_matching = "warn"

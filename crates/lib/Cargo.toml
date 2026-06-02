@@ -1,0 +1,37 @@
+[package]
+name = "nix-remote-builder-doctor-lib"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+rust-template-foundation = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tap = { workspace = true }
+
+# Domain-specific dependencies.
+base64 = { workspace = true }
+lazy-regex = { workspace = true }
+nix = { workspace = true }
+owo-colors = { workspace = true }
+partial_application = { workspace = true }
+regex = { workspace = true }
+ssh2 = { workspace = true }
+strum = { workspace = true }
+tabled = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
+assert-json-diff = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

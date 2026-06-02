@@ -1,0 +1,35 @@
+[package]
+name = "nix-remote-builder-doctor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+# Keep the binary name as the project name — external consumers (NixOS
+# module, /etc/nix/machines users) already invoke this as
+# `nix-remote-builder-doctor`.  The crate dir name (`cli`) and package
+# name diverge intentionally; the template's <project>-<type> convention
+# would have produced `nix-remote-builder-doctor-cli`, which would break
+# every existing caller.
+[[bin]]
+name = "nix-remote-builder-doctor"
+path = "src/main.rs"
+
+[dependencies]
+rust-template-foundation = { workspace = true, features = ["cli"] }
+nix-remote-builder-doctor-lib = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tap = { workspace = true }
+
+[dev-dependencies]
+portpicker = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

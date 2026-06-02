@@ -1,0 +1,50 @@
+#+title:     Changelog
+#+language:  en
+
+* Upcoming
+** Added
+- Migrated the project onto the [[https://github.com/LoganBarnett/rust-template][rust-template]] layout.  The following scaffolding
+  is now sourced from the template rather than maintained in-repo:
+  - Crane-based Nix build via =foundation.lib.mkRustPackages=, replacing the
+    =rustPlatform.buildRustPackage= derivation and its hand-maintained
+    =cargoHash=.
+  - Multi-crate workspace (=crates/lib= for domain code, =crates/cli= for the
+    thin entry point) with workspace-level dependency and profile management.
+  - =rust-template-foundation= crate providing =#[foundation_main]= +
+    =MergeConfig= derive — CLI parse, config-file merge, and =tracing= init are
+    generated rather than hand-rolled.  Replaces =log= + =stderrlog= +
+    =clap-verbosity-flag= + the per-project =logger.rs=.
+  - Workspace clippy lint set: =unwrap_used=, =expect_used=, and =panic= are
+    denied outside the test exemption; combinator-favouring lints (=manual_map=,
+    =manual_filter_map=, ...) warn.
+  - Reusable CI workflow from rust-template (=test=, =fmt --check=, =clippy
+    --deny warnings=, changelog-entry gate, dependabot auto-merge,
+    branch-protection sync).
+  - =treefmt= configuration covering Rust (=rustfmt=), Nix (=alejandra=),
+    org-mode (=org-fmt=), and JSON/YAML/Markdown (=prettier=).
+  - =.cargo-husky= pre-commit hooks wired up via the foundation
+    =cargoHuskyHookSnippet= so contributors run formatters and clippy locally
+    before pushing.
+  - =justfile= with =build=, =test=, and =run= recipes.
+  - =.claude/= compliance agent + Stop-hook so review of uncommitted
+    Rust/Nix/config changes against the project conventions runs automatically.
+  - =cargo-semver-checks= in the devShell for ABI-baseline reviews.
+  - =CHANGELOG.org= managed by =changelog-roller=, with releases cutting an
+    Upcoming section into a tagged version.
+- Semantic =Display= impls on =AppError= via =thiserror=, replacing the
+  derive-less enum so foundation's error-reporting path renders each variant
+  with the operation that failed rather than a =Debug= dump.
+** Changed
+- Logging migrated from =log= + =stderrlog= to =tracing= + =tracing-subscriber=;
+  verbosity comes from =--log-level= / =--log-format= (managed by foundation)
+  rather than =-v= flags.
+- Workspace lints surface the previously-tolerated =.unwrap()= / =.expect()=
+  sites in shipping code; all 23 such call sites were converted to
+  =?=-propagation, =unwrap_or_*= where the fallback is semantically correct, or
+  =lazy_regex::regex!= for literal patterns.
+** Removed
+- =derivation.nix=, =rust-toolchain.toml=, and the in-repo =src/logger.rs= +
+  =src/cli.rs= — superseded by the template's flake, rust-overlay toolchain pin,
+  and foundation's =MergeConfig= / logging.
+- Unreachable stub modules =src/russh.rs= and =src/ssh_home.rs=, which the
+  previous lib root never compiled in.
