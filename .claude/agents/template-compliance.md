@@ -15,8 +15,7 @@ captured in this project's `CLAUDE.md`.  You do **not** review prose files
 
 1. **Load the conventions.**
 
-   Read the project's `CLAUDE.md` (root of the working tree) (root, or
-   `template/CLAUDE.md` if you are inside the nix-remote-builder-doctor repo itself).  These
+   Read the project's `CLAUDE.md` (root of the working tree).  These
    are authoritative.  Do not invent rules that are not in those documents or in
    the user's global `~/.claude/CLAUDE.md`.
 
