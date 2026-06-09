@@ -56,7 +56,7 @@ regex = "1.10"
 # SSH client (libssh2 bindings).
 ssh2 = "0.9"
 # Display impls derived from enum variants.
-strum = { version = "0.26", features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
 # Pretty terminal tables.
 tabled = { version = "0.15", features = ["ansi"] }
 # Parse and produce URLs.
