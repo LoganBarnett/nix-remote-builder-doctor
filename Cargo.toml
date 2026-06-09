@@ -58,7 +58,7 @@ ssh2 = "0.9"
 # Display impls derived from enum variants.
 strum = { version = "0.26", features = ["derive"] }
 # Pretty terminal tables.
-tabled = { version = "0.15", features = ["ansi"] }
+tabled = { version = "0.21", features = ["ansi"] }
 # Parse and produce URLs.
 url = "2.5"
 
