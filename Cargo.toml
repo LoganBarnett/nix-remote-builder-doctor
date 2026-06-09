@@ -46,7 +46,7 @@ base64 = "0.22"
 # Compile-time-validated regex (drop-in for Regex::new(literal).unwrap()).
 lazy-regex = "3"
 # Unix signal classification (SIGPIPE detection on child process exits).
-nix = { version = "0.29", features = ["signal"] }
+nix = { version = "0.31", features = ["signal"] }
 # Terminal colors for the table output.
 owo-colors = "4"
 # Partial application macro for cleaner combinator pipelines.
