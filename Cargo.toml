@@ -52,7 +52,7 @@ owo-colors = "4"
 # Partial application macro for cleaner combinator pipelines.
 partial_application = "0.2"
 # Runtime regex (kept alongside lazy-regex for non-literal patterns).
-regex = "1.10"
+regex = "1.12"
 # SSH client (libssh2 bindings).
 ssh2 = "0.9"
 # Display impls derived from enum variants.
